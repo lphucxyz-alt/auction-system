@@ -110,6 +110,10 @@ public class Auction extends Entity {
     }
   }
 
+  public Instant getEndTime() {
+    return endTime;
+  }
+
   public Item getItem() {
     return item;
   }
