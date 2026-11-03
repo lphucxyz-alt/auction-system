@@ -1,3 +1,8 @@
 package com.example.auction.common.model;
 
-public enum ItemType { ELECTRONICS, ART, VEHICLE }
+/** Supported product categories accepted by the item factory. */
+public enum ItemType {
+  ELECTRONICS,
+  ART,
+  VEHICLE
+}

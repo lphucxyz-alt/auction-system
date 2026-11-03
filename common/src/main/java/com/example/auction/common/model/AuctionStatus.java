@@ -1,7 +1,12 @@
 package com.example.auction.common.model;
 
+/** Explicit auction lifecycle and allowed transitions. */
 public enum AuctionStatus {
-  OPEN, RUNNING, FINISHED, PAID, CANCELED;
+  OPEN,
+  RUNNING,
+  FINISHED,
+  PAID,
+  CANCELED;
 
   /** Máy trạng thái: chỉ cho phép chuyển đúng thứ tự. */
   public boolean canTransitionTo(AuctionStatus next) {

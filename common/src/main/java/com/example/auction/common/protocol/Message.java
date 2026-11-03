@@ -12,6 +12,7 @@ public final class Message {
   private final String requestId; // null với sự kiện Server đẩy xuống
   private final JsonObject payload;
 
+  /** Creates an instance with the supplied identity and configuration. */
   public Message(String type, String requestId, JsonObject payload) {
     this.type = type;
     this.requestId = requestId;
@@ -22,6 +23,7 @@ public final class Message {
     return new Message(MessageType.RESULT, requestId, payload);
   }
 
+  /** Creates an error response without exposing server internals. */
   public static Message error(String requestId, String code, String text) {
     JsonObject p = new JsonObject();
     p.addProperty("code", code);
@@ -52,7 +54,7 @@ public final class Message {
       if (m == null || m.type == null) {
         throw new IllegalArgumentException("Thiếu trường type");
       }
-      return m;
+      return new Message(m.type, m.requestId, m.payload);
     } catch (JsonParseException e) {
       throw new IllegalArgumentException("JSON không hợp lệ: " + e.getMessage());
     }

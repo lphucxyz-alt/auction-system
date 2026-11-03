@@ -1,14 +1,24 @@
 package com.example.auction.common.model;
 
+/** Electronic product with brand and warranty period. */
 public class Electronics extends Item {
   private final String brand;
   private final int warrantyMonths;
 
-  public Electronics(String name, String description, long startingPrice,
-      String brand, int warrantyMonths) {
+  /** Creates an instance with the supplied identity and configuration. */
+  public Electronics(
+      String name, String description, long startingPrice, String brand, int warrantyMonths) {
     super(name, description, startingPrice);
     this.brand = brand;
     this.warrantyMonths = warrantyMonths;
+  }
+
+  public String getBrand() {
+    return brand;
+  }
+
+  public int getWarrantyMonths() {
+    return warrantyMonths;
   }
 
   @Override

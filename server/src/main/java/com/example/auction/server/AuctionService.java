@@ -13,10 +13,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/** Small in-memory domain service for isolated logic demonstrations. */
 public class AuctionService {
   private final Map<String, Auction> auctions = new ConcurrentHashMap<>();
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
+  /** Creates an in-memory auction with the specified duration. */
   public Auction create(Item item, String sellerId, Duration length) {
     Auction auction = new Auction(item, sellerId, Instant.now().plus(length));
     auctions.put(auction.getId(), auction);
@@ -26,8 +28,16 @@ public class AuctionService {
   /** Mở phiên và hẹn giờ tự đóng. Thời gian lấy theo đồng hồ của Server. */
   public void start(Auction auction) {
     auction.changeStatus(AuctionStatus.RUNNING);
-    long delayMs = Math.max(0, Duration.between(Instant.now(), auction.getEndTime()).toMillis());
-    scheduler.schedule(() -> close(auction), delayMs, TimeUnit.MILLISECONDS);
+    scheduler.scheduleAtFixedRate(
+        () -> {
+          if (auction.getStatus() == AuctionStatus.RUNNING
+              && !Instant.now().isBefore(auction.getEndTime())) {
+            close(auction);
+          }
+        },
+        0,
+        50,
+        TimeUnit.MILLISECONDS);
   }
 
   private void close(Auction auction) {
@@ -38,6 +48,9 @@ public class AuctionService {
     }
   }
 
+  /**
+   * Accepts a strictly increasing bid, resolves auto-bids and notifies observers after unlocking.
+   */
   public BidTransaction placeBid(String auctionId, String bidderId, long amount) {
     Auction auction = auctions.get(auctionId);
     if (auction == null) {

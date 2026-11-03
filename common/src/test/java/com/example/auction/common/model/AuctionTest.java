@@ -1,6 +1,8 @@
 package com.example.auction.common.model;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.auction.common.exception.AuctionClosedException;
 import com.example.auction.common.exception.InvalidBidException;
@@ -55,15 +57,16 @@ class AuctionTest {
 
     for (int i = 1; i <= threads; i++) {
       final int n = i;
-      pool.submit(() -> {
-        ready.countDown();
-        try {
-          go.await();
-          a.placeBid("bidder" + n, 1000L + n * 100L, Instant.now());
-        } catch (InvalidBidException | InterruptedException ignored) {
-          // bị thua trong cuộc đua là bình thường
-        }
-      });
+      pool.submit(
+          () -> {
+            ready.countDown();
+            try {
+              go.await();
+              a.placeBid("bidder" + n, 1000L + n * 100L, Instant.now());
+            } catch (InvalidBidException | InterruptedException ignored) {
+              // bị thua trong cuộc đua là bình thường
+            }
+          });
     }
     ready.await();
     go.countDown();

@@ -1,5 +1,6 @@
 package com.example.auction.common.model;
 
+/** Abstract account identity; only the server stores the salted password hash. */
 public abstract class User extends Entity {
   private final String username;
   private final String passwordHash;

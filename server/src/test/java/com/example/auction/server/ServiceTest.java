@@ -1,6 +1,8 @@
 package com.example.auction.server;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.example.auction.common.exception.AuctionClosedException;
 import com.example.auction.common.exception.AuctionException;
