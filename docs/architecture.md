@@ -78,9 +78,12 @@ Ghi file toàn bộ phù hợp dữ liệu nhỏ của BTL, nhưng làm giảm t
 cùng ghi. Không tuyên bố hệ thống hiện tại phục vụ tải thương mại lớn.
 
 Server dùng thread pool thông thường, giới hạn 64 kết nối và hàng đợi gửi riêng cho mỗi
-client. Client chậm bị ngắt khi hàng đợi đầy. Client nhận mạng ở luồng riêng, cập nhật GUI
+client. Client chậm bị ngắt khi hàng đợi đầy hoặc vượt 8 MiB dữ liệu mã hóa đang giữ, gồm frame đang ghi. Client nhận mạng ở luồng riêng, cập nhật GUI
 qua Platform.runLater. Timer giao diện chỉ đếm ngược tại máy, không polling mạng.
-requestId ghép phản hồi đúng yêu cầu; version ngăn snapshot cũ ghi đè giá mới.
+requestId ghép phản hồi đúng yêu cầu; version ngăn snapshot cũ ghi đè giá mới. Chuỗi tải
+history cũng kiểm version, không chỉ snapshot phiên. Phân trang dùng afterId để tránh
+dịch offset khi có xóa. Khóa socket writer tách khỏi khóa close, nên mất mạng không chặn
+GUI lúc đóng; callback mất mạng được lưu lại nếu nó xảy ra trước khi controller đăng ký.
 
 ## Auto-bid và anti-sniping
 
@@ -97,9 +100,10 @@ Clock luôn đọc endTime mới, nên thời gian gia hạn không bị một t
 
 FileStore serialize tài khoản có hash mật khẩu, phiên và history/rule auto vào file cục bộ.
 Listener transient được gắn lại khi load. Không dùng ObjectInputStream cho dữ liệu socket.
-Object filter giới hạn kiểu/độ sâu; file tạm được fsync rồi move nguyên tử, process lock
+Object filter giới hạn kiểu/độ sâu/chiều dài mảng; file tạm được fsync rồi move nguyên tử, process lock
 ngăn hai server ghi cùng thư mục. Ghi lỗi làm service ngừng nhận lệnh đến khi restart;
-file hỏng không bị tự reset. Mất phản hồi sau khi ghi vẫn có thể xảy ra, nên client không
+file hỏng không bị tự reset. DAO đã close không được ghi tiếp bằng đối tượng cũ.
+Lỗi từng application observer được cách ly khỏi kết quả của lệnh đã commit. Mất phản hồi sau khi ghi vẫn có thể xảy ra, nên client không
 tự gửi lại lệnh tạo phiên/đặt giá. Khi gặp tình huống đó cần tải lại để kiểm kết quả.
 
 Mật khẩu dùng PBKDF2 + salt, không đưa hash vào JSON public. Socket demo chưa có TLS,

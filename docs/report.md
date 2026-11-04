@@ -62,6 +62,10 @@ Checkstyle Google là bước bắt buộc trong verify. JaCoCo đo cả server/
 kiểm tổng coverage dòng ≥60%. GitHub Actions đã cấu hình chạy cùng lệnh, chưa khẳng định
 đã chạy trên GitHub khi chưa push. Số liệu hiện tại ghi ở [requirements.md](requirements.md).
 
+Đợt kiểm tra bổ sung có test tái hiện lỗi ở bản trước, không chỉ chạy lại test đã có.
+Các lỗi mạng, lưu trữ và GUI cùng cách sửa được ghi ở [audit.md](audit.md). Thử tải dùng
+JAR thật và kho tạm; số liệu kiểm thử hiện tại xem requirements.md/validation.json.
+
 ## 7. Đánh giá và giới hạn
 
 Các chức năng nghiệp vụ có thể kiểm chứng trong một môi trường chạy được, cùng hướng dẫn

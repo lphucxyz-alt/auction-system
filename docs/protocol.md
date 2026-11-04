@@ -11,7 +11,7 @@ Không trả passwordHash, maxBid của người khác hoặc Java serialized ob
 | REGISTER | username, password, role BIDDER/SELLER | Công khai; trả user (không đăng nhập tự động) |
 | LOGIN | username, password | Trả user, gắn session; chỉ một danh tính/socket |
 | LOGOUT | {} | Xóa session, subscriptions |
-| LIST_AUCTIONS | offset (mặc định 0) | Đăng nhập; trả tối đa 50 auctions, nextOffset (-1 nếu hết), total |
+| LIST_AUCTIONS | afterId (cursor, khuyến nghị), hoặc offset (mặc định 0) | Tối đa 50 auctions theo id tăng dần, nextAfterId (null nếu hết), nextOffset, total |
 | GET_HISTORY | auctionId, offset (mặc định 0) | Đăng nhập; 100 lượt/trang, nextOffset, total |
 | GET_AUCTION | auctionId | Đăng nhập; trả auction, 100 lượt history gần nhất |
 | SUBSCRIBE | auctionId | Đăng nhập; nhận snapshot + sự kiện |
@@ -47,3 +47,14 @@ Client dùng `client.protocol.Message/JsonLines`; server dùng `server.protocol.
 Mỗi bên có bản triển khai JSON nhỏ riêng để build độc lập. Không truyền entity Java hoặc
 chia sẻ mật khẩu hash/DAO qua classpath. Khi đổi contract, cập nhật tài liệu này, codec/test
 của từng bên và chạy test tích hợp để tránh hai bản hiểu khác nhau.
+
+## Tải danh sách và xử lý phản hồi trễ
+
+Client mới lấy trang kế bằng nextAfterId/afterId để xóa phần tử ở trang trước không làm
+mất vị trí đọc. Offset còn để tương thích client cũ; nó không tạo snapshot nhất quán khi
+các phần tử bị xóa trong lúc phân trang. Phiên mới trong lúc tải được nhận bằng sự kiện.
+Khi tải toàn bộ history, client giữ version đã chọn và hủy áp dụng kết quả cũ nếu phiên đã
+cập nhật. Các lệnh GUI được gửi theo thứ tự; không tự retry mutation khi timeout/mất mạng.
+Timeout đóng kết nối để giải phóng cả write bị chặn; kết nối lại rồi kiểm tra trạng thái.
+Hàng đợi gửi mỗi session tối đa 256 frame và 8 MiB, tính cả frame đang ghi. Hết ngân sách
+hoặc phản hồi vượt 4 MiB thì ngắt client đó.

@@ -134,6 +134,7 @@ rồi xóa snapshot của người dùng. GUI hiển thị 100 lượt gần nh�
 - [Kiến trúc và thuật toán](docs/architecture.md)
 - [Giao thức Socket](docs/protocol.md)
 - [Đối chiếu yêu cầu và kết quả kiểm thử](docs/requirements.md)
+- [Kiểm tra lỗi, regression và giới hạn còn lại](docs/audit.md)
 - [Kịch bản demo](docs/demo.md)
 - [Báo cáo](docs/report.md), [PDF](docs/report.pdf), [Word](docs/report.docx)
 - [Nội dung trình bày](docs/slides.md), [PowerPoint](docs/presentation.pptx)

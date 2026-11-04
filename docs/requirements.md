@@ -32,12 +32,12 @@ Lệnh cuối `mvn -B -ntp verify` (kèm settings cloud) hoàn thành **BUILD SU
 
 | Module | Lượt test | Fail / Error / Skip | Coverage dòng |
 |---|---:|---|---:|
-| server | 130 | 0 / 0 / 0 | 793/889 = 89,2% |
-| client | 5 | 0 / 0 / 0 | 418/653 = 64,0% |
-| integration-tests | 2 | 0 / 0 / 0 | Gộp phần thực thi vào server/client |
-| **Tổng** | **137** | **0 / 0 / 0** | **1211/1542 = 78,5%** |
+| server | 138 | 0 / 0 / 0 | 833/929 = 89,7% |
+| client | 10 | 0 / 0 / 0 | 494/724 = 68,2% |
+| integration-tests | 3 | 0 / 0 / 0 | Gộp phần thực thi vào server/client |
+| **Tổng** | **151** | **0 / 0 / 0** | **1327/1653 = 80,3%** |
 
-137 là số **lượt thực thi**, gồm test cạnh tranh được lặp 100 lần; không phải 137 phương thức
+151 là số **lượt thực thi**, gồm test cạnh tranh được lặp 100 lần; không phải 151 phương thức
 test độc lập. Không loại GUI hoặc lớp nghiệp vụ khỏi báo cáo để tăng coverage.
 Checkstyle Google có **0 vi phạm** ở các project. Coverage lấy từ báo cáo aggregate,
 gồm test riêng của mỗi ứng dụng và test tích hợp, không cộng trùng cùng một dòng code.
@@ -58,6 +58,15 @@ chứa JavaFX/client, JAR client không chứa server/domain/DAO.
 
 ![Đăng nhập từ test FXML](images/login.png)
 ![Bid thật và biểu đồ nhận dữ liệu từ client thứ hai](images/auction-live.png)
+
+## Kiểm tra lỗi bổ sung
+
+Xem [audit.md](audit.md): các lỗi tìm được, test thất bại trước sửa, bản sửa và phạm vi
+kiểm tra. Bổ sung kiểm lỗi giao thức, write bị chặn, callback mất mạng, observer lỗi,
+phân trang khi xóa, dữ liệu history đến trễ, DAO đã đóng và mảng serialization quá lớn.
+Thử thêm 24 client đồng thời, 400 bid với peer không đọc, 50 sản phẩm Unicode lớn,
+4.000 thao tác theo seed cố định và 50 cuộc đua giữa bid/đóng phiên. Test tăng thêm là
+để bắt các tình huống cụ thể; coverage cao không chứng minh dự án không còn lỗi.
 
 ## Phần cần người nộp thực hiện
 

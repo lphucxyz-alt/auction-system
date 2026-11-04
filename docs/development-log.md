@@ -24,3 +24,11 @@ song song. Các nhánh cũ đã tồn tại trên GitHub được giữ nguyên.
 - Thử bản sao snapshot demo bản trước: đọc dữ liệu và đăng nhập tài khoản cũ thành công.
 
 Các kết quả này đo trên môi trường hiện tại; kết quả CI trên GitHub xem lần chạy tương ứng.
+
+## Kiểm tra lỗi bổ sung sau c7dd5c8
+
+Nhánh `fix/audit-connection-and-events`, commit sửa code `7e3f8f8`: kiểm tra sâu luồng mạng,
+lưu file, observer và GUI; các lỗi cùng test tái hiện nằm ở [audit.md](audit.md).
+Kết quả sau sửa: 151 lượt test, 0 failure/error/skip, Checkstyle 0 vi phạm, coverage
+1327/1653 dòng (80,3%). Bản JAR thật qua thử 24 bidder đồng thời, 400 bid có client không
+đọc, restart và đọc bản sao snapshot cũ. Hai ứng dụng vẫn build/test từ thư mục sao chép riêng.

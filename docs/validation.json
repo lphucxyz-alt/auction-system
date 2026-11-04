@@ -1,19 +1,19 @@
 {
   "modules": {
     "server": {
-      "tests": 130,
+      "tests": 138,
       "failures": 0,
       "errors": 0,
       "skipped": 0
     },
     "client": {
-      "tests": 5,
+      "tests": 10,
       "failures": 0,
       "errors": 0,
       "skipped": 0
     },
     "integration-tests": {
-      "tests": 2,
+      "tests": 3,
       "failures": 0,
       "errors": 0,
       "skipped": 0
@@ -21,19 +21,25 @@
   },
   "coverage": {
     "server": {
-      "covered": 793,
+      "covered": 833,
       "missed": 96
     },
     "client": {
-      "covered": 418,
-      "missed": 235
+      "covered": 494,
+      "missed": 230
     }
   },
   "checks": {
     "independent_copies": "PASS",
     "architecture": "PASS",
     "packaged_jar_smoke": "PASS",
-    "previous_snapshot_copy": "PASS"
+    "previous_snapshot_copy": "PASS on final JAR using a temporary copy",
+    "concurrent_real_clients_24": "PASS",
+    "slow_reader_400_bids": "PASS",
+    "old_controller_regressions": "CONFIRMED FAIL before fix",
+    "large_response_output_budget": "PASS"
   },
-  "checkstyle_violations": 0
+  "baseline_commit": "c7dd5c8",
+  "checkstyle_violations": 0,
+  "fix_commit": "7e3f8f8"
 }
