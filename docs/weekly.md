@@ -18,6 +18,12 @@ request/response thật; tên nhánh không có nghĩa server cuối cùng chỉ
 Phần E (test/GUI phụ) trong kế hoạch năm người được chia lại: A/B/C viết test phần mình,
 D ghép test xuyên suốt và CI. Mọi mảng cùng review tài liệu, không dồn hết test cho D.
 
+## Xem cụ thể từng file
+
+[Bảng tuần → file → phần code cần làm](weekly-files.md) liệt kê đủ A/B/C/D cho từng tuần,
+kèm bảng tra ngược file → các tuần liên quan. Ví dụ `Auction.java` bắt đầu bằng dữ liệu
+ở tuần 6, thêm đặt giá/khóa ở tuần 7, hoàn thiện lỗi ở tuần 8 rồi thêm auto-bid ở tuần 13.
+
 ## Tuần 6–15
 
 | Tuần | A — Domain | B — Đấu giá | C — Server/mạng | D — Client/tích hợp | Điều kiện chốt tuần |

@@ -128,6 +128,7 @@ rồi xóa snapshot của người dùng. GUI hiển thị 100 lượt gần nh�
 
 ## Phân công và tài liệu
 
+- [Tuần nào làm file nào, phần code nào?](docs/weekly-files.md)
 - [Kế hoạch tuần 6–15 cho bốn mảng](docs/weekly.md)
 - [Các thay đổi thực tế và nhánh](docs/development-log.md)
 - [Kiến trúc và thuật toán](docs/architecture.md)
