@@ -145,4 +145,23 @@ class AdvancedAuctionTest {
         AuctionException.class, () -> a.update(a.getItem(), now, now.plusSeconds(3), false));
     assertThrows(AuctionException.class, () -> a.startNow(now));
   }
+
+  @Test
+  void autoBidAtMaximumAmountStillHasOneLeader() {
+    Auction a = auction(false);
+    a.configureAutoBid("first", Auction.MAX_AMOUNT, Auction.MAX_AMOUNT, now);
+    assertEquals(Auction.MAX_AMOUNT, a.getCurrentPrice());
+    assertEquals("first", a.getLeaderId());
+    assertThrows(InvalidBidException.class, () -> a.placeBid("second", Auction.MAX_AMOUNT, now));
+  }
+
+  @Test
+  void draftRejectsIncompleteUpdateWithoutLosingItem() {
+    Item original = new Art("Tranh", "", 100, "A", 2026);
+    Auction a = new Auction(original, "seller", now, now.plusSeconds(60), false);
+    assertThrows(
+        IllegalArgumentException.class, () -> a.update(null, now, now.plusSeconds(60), false));
+    assertEquals(original, a.getItem());
+    assertEquals(100, a.getCurrentPrice());
+  }
 }

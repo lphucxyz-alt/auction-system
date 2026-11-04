@@ -114,7 +114,7 @@ public class Auction extends Entity {
       if (status != AuctionStatus.OPEN) {
         throw new AuctionException("Chỉ sửa phiên OPEN");
       }
-      if (!end.isAfter(start)) {
+      if (replacement == null || start == null || end == null || !end.isAfter(start)) {
         throw new IllegalArgumentException("Thời gian không hợp lệ");
       }
       item = replacement;
@@ -196,7 +196,7 @@ public class Auction extends Entity {
     }
   }
 
-  /** Resolve caps in O(n log n), without generating millions of synthetic one-step bids. */
+  /** So sánh các trần bằng hàng đợi ưu tiên, không lặp từng bước giá đến hết trần. */
   private void resolveAutoBids(Instant now, List<BidTransaction> accepted) {
     PriorityQueue<AutoBid> queue =
         new PriorityQueue<>(
@@ -217,20 +217,13 @@ public class Auction extends Entity {
       return;
     }
     AutoBid runner = queue.poll();
+    // Mỗi số tiền ≤ 10^15, nên cộng hai số tiền vẫn nằm trong phạm vi long.
     long price = currentPrice;
     if (runner != null) {
-      price =
-          Math.min(
-              winner.maxBid(),
-              runner.maxBid() + Math.min(winner.increment(), MAX_AMOUNT - runner.maxBid()));
+      price = Math.min(winner.maxBid(), runner.maxBid() + winner.increment());
     }
     if (!winner.bidderId().equals(leaderId)) {
-      price =
-          Math.max(
-              price,
-              Math.min(
-                  winner.maxBid(),
-                  currentPrice + Math.min(winner.increment(), MAX_AMOUNT - currentPrice)));
+      price = Math.max(price, Math.min(winner.maxBid(), currentPrice + winner.increment()));
     }
     if (price > currentPrice && price <= winner.maxBid()) {
       accept(winner.bidderId(), price, now, accepted);
