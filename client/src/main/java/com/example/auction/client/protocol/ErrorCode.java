@@ -1,4 +1,4 @@
-package com.example.auction.common.protocol;
+package com.example.auction.client.protocol;
 
 /** Mỗi ngoại lệ của Server ứng với một mã lỗi mà Client hiểu và hiển thị. */
 public final class ErrorCode {

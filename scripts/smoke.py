@@ -48,7 +48,7 @@ class Peer:
 
 def start(data):
     process = subprocess.Popen([JAVA, '-Dauction.port=0', '-Dauction.data=' + data,
-                                '-jar', str(ROOT / 'server/target/server-1.0-SNAPSHOT.jar'), '--demo'],
+                                '-jar', str(ROOT / 'server/target/server-1.0-SNAPSHOT-all.jar'), '--demo'],
                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     lines = queue.Queue()
     def output():

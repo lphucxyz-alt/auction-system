@@ -1,4 +1,4 @@
-package com.example.auction.common.protocol;
+package com.example.auction.client.protocol;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

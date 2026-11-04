@@ -1,11 +1,11 @@
-package com.example.auction.common.protocol;
+package com.example.auction.client.protocol;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-/** Bounded framing shared by client and server. Never Java-deserialize network input. */
+/** Đọc một dòng UTF-8 có giới hạn kích thước; dữ liệu mạng luôn là JSON. */
 public final class JsonLines {
   public static final int MAX_FRAME_BYTES = 65_536;
 
@@ -24,7 +24,7 @@ public final class JsonLines {
         return bytes.toString(StandardCharsets.UTF_8);
       }
       if (bytes.size() >= maximum) {
-        throw new IOException("Thông điệp vượt 64 KiB");
+        throw new IOException("Thông điệp vượt giới hạn cho phép");
       }
       bytes.write(next);
     }

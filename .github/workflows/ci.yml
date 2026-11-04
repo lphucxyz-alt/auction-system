@@ -1,10 +1,28 @@
-name: Build, test and coverage
+name: Test independent apps and integration
 on:
   push:
   pull_request:
   workflow_dispatch:
 jobs:
-  verify:
+  standalone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        app: [server, client]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Build only the selected application in a separate directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/standalone"
+          cp -R "${{ matrix.app }}" "$RUNNER_TEMP/standalone/${{ matrix.app }}"
+          mvn -B -ntp -f "$RUNNER_TEMP/standalone/${{ matrix.app }}/pom.xml" clean verify
+  integration:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -14,20 +32,18 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Build and run domain, socket and headless JavaFX tests
-        run: mvn -B -ntp clean verify
-      - name: Enforce aggregate line coverage including GUI
-        run: python3 scripts/check_coverage.py
-      - name: Verify packaged server and process restart
-        run: python3 scripts/smoke.py
-      - name: Upload reports, screenshots and runnable server
+      - run: mvn -B -ntp clean verify
+      - run: python3 scripts/check_architecture.py
+      - run: python3 scripts/check_coverage.py
+      - run: python3 scripts/smoke.py
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: auction-system-validation
+          name: auction-validation
           path: |
             **/target/surefire-reports/
             **/target/site/jacoco/
+            integration-tests/target/site/jacoco-aggregate/
             **/target/checkstyle-result.xml
-            client/target/screenshots/
-            server/target/server-1.0-SNAPSHOT.jar
+            integration-tests/target/screenshots/
+            server/target/server-1.0-SNAPSHOT-all.jar

@@ -1,7 +1,7 @@
 package com.example.auction.client;
 
-import com.example.auction.common.protocol.JsonLines;
-import com.example.auction.common.protocol.Message;
+import com.example.auction.client.protocol.JsonLines;
+import com.example.auction.client.protocol.Message;
 import com.google.gson.JsonObject;
 import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
@@ -60,7 +60,9 @@ public final class AuctionConnection implements AutoCloseable {
       output =
           new BufferedWriter(
               new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
-      Thread.ofVirtual().name("auction-receiver").start(this::readLoop);
+      Thread receiver = new Thread(this::readLoop, "auction-receiver");
+      receiver.setDaemon(true);
+      receiver.start();
     } catch (IOException e) {
       timeout.shutdownNow();
       socket.close();

@@ -1,4 +1,4 @@
-package com.example.auction.common.protocol;
+package com.example.auction.client.protocol;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -12,7 +12,7 @@ public final class Message {
   private final String requestId; // null với sự kiện Server đẩy xuống
   private final JsonObject payload;
 
-  /** Creates an instance with the supplied identity and configuration. */
+  /** Tạo thông điệp gồm loại, mã yêu cầu và payload. */
   public Message(String type, String requestId, JsonObject payload) {
     this.type = type;
     this.requestId = requestId;

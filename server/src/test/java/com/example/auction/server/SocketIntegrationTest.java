@@ -6,10 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.example.auction.common.protocol.JsonLines;
-import com.example.auction.common.protocol.Message;
 import com.example.auction.server.dao.FileStore;
 import com.example.auction.server.network.AuctionServer;
+import com.example.auction.server.protocol.JsonLines;
+import com.example.auction.server.protocol.Message;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.BufferedInputStream;

@@ -14,4 +14,16 @@ Các nhóm lớp:
 - `server/network`: nhận/gửi JSON, phiên đăng nhập trên mỗi socket.
 - `server/dao`: đọc/ghi snapshot, khóa thư mục dữ liệu.
 
-Hướng dẫn build độc lập và chạy sẽ nằm ở phần cài đặt của repository khi hoàn tất việc tách module.
+Có thể chép riêng thư mục `server/` sang máy khác và chạy:
+
+```bash
+mvn clean verify
+java -jar target/server-1.0-SNAPSHOT-all.jar --demo
+```
+
+Không cần client, JavaFX, POM gốc hoặc module common. JAR `-all` chứa Gson để chạy trực tiếp;
+JAR không có hậu tố là thư viện server cho bộ test tích hợp.
+
+`auction.data` mặc định là `data/` tương đối với thư mục chạy lệnh. Khi chạy bằng
+`bash scripts/server.sh --demo` ở gốc repository, dữ liệu cũ ở `data/` được dùng tiếp.
+Để chỉ rõ một kho đã có, truyền `-Dauction.data=/đường/dẫn/data` trước `-jar`.

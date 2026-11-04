@@ -1,4 +1,4 @@
-package com.example.auction.common.protocol;
+package com.example.auction.client.protocol;
 
 /** Các loại thông điệp. Client gửi yêu cầu, Server trả RESULT/ERROR hoặc đẩy sự kiện. */
 public final class MessageType {

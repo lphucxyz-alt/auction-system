@@ -1,6 +1,6 @@
 package com.example.auction.client;
 
-import com.example.auction.common.protocol.Message;
+import com.example.auction.client.protocol.Message;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.time.Instant;
