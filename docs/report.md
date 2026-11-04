@@ -1,12 +1,12 @@
-# Báo cáo kỹ thuật — Hệ thống đấu giá trực tuyến GAVEL
+# Báo cáo kỹ thuật — Hệ thống đấu giá trực tuyến
 
 ## 1. Mục tiêu và phạm vi
 
 Xây dựng hệ thống Client–Server Java đáp ứng các chức năng của đề BTL LTNC 2026:
 quản lý tài khoản theo vai trò, quản lý sản phẩm, đặt giá hợp lệ, realtime và kết thúc phiên.
 Giao diện dùng JavaFX/FXML, xử lý lỗi kết nối và dữ liệu. Ba phần nâng cao được triển khai:
-auto-bid, anti-sniping và biểu đồ giá. Không phân chia đóng góp cá nhân hoặc tạo lịch sử
-commit giả; đây là repository dự phòng theo yêu cầu người dùng.
+auto-bid, anti-sniping và biểu đồ giá. Kế hoạch phân công bốn mảng công việc nằm ở `weekly.md`, phần thực hiện có bằng chứng
+riêng trong nhật ký thay đổi.
 
 ## 2. Phân tích nghiệp vụ
 
@@ -21,8 +21,9 @@ mô phỏng, chỉ người thắng có quyền. Admin giám sát tài khoản v
 ## 3. Thiết kế
 
 Các sơ đồ và quyết định chi tiết ở [architecture.md](architecture.md), giao thức ở
-[protocol.md](protocol.md). `common` có domain và protocol; `server` có Socket controller,
-service facade và DAO; `client` có FXML/CSS, controllers, view model và kết nối bất đồng bộ.
+[protocol.md](protocol.md). `server` chứa domain, Socket controller, service và DAO. `client` có FXML/CSS, controller,
+view model và kết nối riêng. Cả hai có POM độc lập, không import lớp của nhau. Bộ test GUI
+với server thật nằm trong `integration-tests`; nó không trở thành dependency của client.
 Mỗi trách nhiệm nằm ở một tầng, không dùng dữ liệu mock trong màn hình vận hành.
 
 ## 4. Thuật toán và tính đúng
@@ -57,7 +58,7 @@ ngẫu nhiên và kho tạm, kiểm tra phân quyền, dữ liệu sai, nhiều 
 Test JavaFX tải FXML thật, đăng nhập qua Socket, bấm bid và nhận cập nhật từ client thứ hai.
 Smoke script chạy file JAR ở tiến trình riêng rồi restart để xác minh gói chạy.
 
-Checkstyle Google là bước bắt buộc trong verify. JaCoCo đo cả common/server/client; script
+Checkstyle Google là bước bắt buộc trong verify. JaCoCo đo cả server/client qua test riêng và test tích hợp; script
 kiểm tổng coverage dòng ≥60%. GitHub Actions đã cấu hình chạy cùng lệnh, chưa khẳng định
 đã chạy trên GitHub khi chưa push. Số liệu hiện tại ghi ở [requirements.md](requirements.md).
 

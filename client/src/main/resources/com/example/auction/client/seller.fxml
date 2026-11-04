@@ -3,16 +3,33 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 <VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.auction.client.SellerController" spacing="10" prefWidth="540">
-  <padding><Insets top="15" right="20" bottom="15" left="20"/></padding>
+  <padding>
+    <Insets top="15" right="20" bottom="15" left="20"/>
+  </padding>
   <Label text="THÔNG TIN SẢN PHẨM" styleClass="eyebrow"/>
   <TextField fx:id="name" promptText="Tên sản phẩm"/>
   <TextArea fx:id="description" promptText="Mô tả, tình trạng, điều kiện nhận hàng" prefRowCount="3" wrapText="true"/>
-  <HBox spacing="12"><ComboBox fx:id="category" prefWidth="200"/><TextField fx:id="startingPrice" promptText="Giá khởi điểm VND" HBox.hgrow="ALWAYS"/></HBox>
+  <HBox spacing="12">
+    <ComboBox fx:id="category" prefWidth="200"/>
+    <TextField fx:id="startingPrice" promptText="Giá khởi điểm VND" HBox.hgrow="ALWAYS"/>
+  </HBox>
   <Label text="Điện tử: hãng / tháng bảo hành • Tranh: tác giả / năm • Xe: hãng / số km" wrapText="true" styleClass="muted"/>
-  <HBox spacing="12"><TextField fx:id="extra1" promptText="Hãng / Tác giả" HBox.hgrow="ALWAYS"/><TextField fx:id="extra2" promptText="Thông số số nguyên" prefWidth="200"/></HBox>
+  <HBox spacing="12">
+    <TextField fx:id="extra1" promptText="Hãng / Tác giả" HBox.hgrow="ALWAYS"/>
+    <TextField fx:id="extra2" promptText="Thông số số nguyên" prefWidth="200"/>
+  </HBox>
   <Label text="LỊCH ĐẤU GIÁ" styleClass="eyebrow"/>
   <Label text="Server tự mở sau thời gian chờ. Chọn Bắt đầu để mở ngay." styleClass="muted"/>
-  <HBox spacing="12"><VBox spacing="5"><Label text="Mở sau (giây)"/><TextField fx:id="delay" promptText="Giây chờ"/></VBox><VBox spacing="5"><Label text="Thời lượng (giây)"/><TextField fx:id="duration" promptText="Thời lượng"/></VBox></HBox>
+  <HBox spacing="12">
+    <VBox spacing="5">
+      <Label text="Mở sau (giây)"/>
+      <TextField fx:id="delay" promptText="Giây chờ"/>
+    </VBox>
+    <VBox spacing="5">
+      <Label text="Thời lượng (giây)"/>
+      <TextField fx:id="duration" promptText="Thời lượng"/>
+    </VBox>
+  </HBox>
   <CheckBox fx:id="anti" text="Anti-sniping: bid trong 10 giây cuối gia hạn còn 30 giây"/>
   <Label fx:id="error" wrapText="true" styleClass="feedback"/>
 </VBox>

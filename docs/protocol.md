@@ -40,3 +40,10 @@ Yêu cầu tối đa 64 KiB; phản hồi tối đa 4 MiB. Snapshot chứa 100 l
 Mã lỗi: BAD_REQUEST, AUTH_FAILED, NOT_LOGGED_IN, FORBIDDEN, NOT_FOUND,
 INVALID_BID, AUCTION_CLOSED, CONFLICT, STORAGE_ERROR, INTERNAL.
 Socket demo không mã hóa: chỉ dùng localhost/mạng tin cậy; triển khai Internet cần TLS.
+
+## Ranh giới code
+
+Client dùng `client.protocol.Message/JsonLines`; server dùng `server.protocol.Message/JsonLines`.
+Mỗi bên có bản triển khai JSON nhỏ riêng để build độc lập. Không truyền entity Java hoặc
+chia sẻ mật khẩu hash/DAO qua classpath. Khi đổi contract, cập nhật tài liệu này, codec/test
+của từng bên và chạy test tích hợp để tránh hai bản hiểu khác nhau.

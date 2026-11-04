@@ -1,26 +1,45 @@
-# Kiến trúc và quyết định thiết kế
+# Thiết kế hệ thống
 
-## Thành phần
+## Hai ứng dụng và bộ kiểm thử chung
 
 ```mermaid
 flowchart LR
-  V[FXML + CSS] <--> C[JavaFX Controllers]
-  C <--> VM[AuctionRow / view model]
-  C <--> N[AuctionConnection]
-  N <-->|TCP / JSON Lines| S[AuctionServer / Session controller]
-  S --> A[AuctionApplication / service facade]
-  A --> D[UserService + Auction aggregate]
-  A --> DAO[FileStore DAO]
-  DAO --> F[(Snapshot trên đĩa)]
-  D -->|Observer| A
-  A -->|Event + version| S
+  subgraph Client[client — build độc lập]
+    V[FXML] --> C[Controller]
+    C <--> M[AuctionRow]
+    C <--> N[AuctionConnection + client.protocol]
+  end
+  subgraph Server[server — build độc lập]
+    S[Socket + server.protocol] --> A[AuctionApplication]
+    A --> D[Domain + UserService]
+    A --> DAO[FileStore]
+    DAO --> F[(File dữ liệu)]
+  end
+  N <-->|TCP, một dòng JSON mỗi thông điệp| S
+  T[integration-tests] -.kiểm tra qua API công khai.-> Client
+  T -.kiểm tra qua API công khai.-> Server
 ```
 
-`common` chứa entity, trạng thái, exception và framing/protocol; `server` xử lý xác thực,
-phân quyền, nghiệp vụ, lịch và lưu trữ; `client` không truy cập file dữ liệu của server.
-Controller không tự xác định người thắng hoặc tự thay đổi giá: mọi kết quả đến từ server.
+Mỗi ứng dụng có POM không có parent và không phụ thuộc artifact `com.example.auction`
+của ứng dụng khác. POM gốc chỉ gom hai ứng dụng và `integration-tests` khi cần kiểm tra
+cả hệ thống. Test tích hợp không được đóng gói vào JAR của server hoặc client.
 
-## Cây lớp
+Client giữ dữ liệu hiển thị (`AuctionRow`) và các form, không giữ domain entity hay DAO.
+Không copy các lớp kiểm tra giá/chọn người thắng vào client. Các nút được ẩn theo vai trò
+để dễ dùng, nhưng server vẫn kiểm quyền trên từng lệnh.
+
+## Vì sao có hai bản protocol nhỏ?
+
+Hai bên cần hiểu cùng một dạng JSON, không cần dùng chung class Java. Mỗi bên giữ Message,
+JsonLines và hằng chuỗi riêng trong package của mình. Mã chỉ gồm envelope và framing; luật
+đấu giá nằm ở server. Đổi wire contract phải cập nhật `protocol.md` và test hai bên, rồi
+chạy test tích hợp. Cách này cho phép chép riêng thư mục client sang máy khác để build.
+
+Module `common` cũ đã bỏ. Package domain `com.example.auction.common.model` còn nằm trong
+server để đọc dữ liệu serialization cũ; đổi package ngay sẽ làm các snapshot đã lưu mất
+khả năng đọc. Đây là quyết định tương thích dữ liệu, không phải một thư viện dùng chung.
+
+## OOP và mẫu thiết kế
 
 ```mermaid
 classDiagram
@@ -35,74 +54,53 @@ classDiagram
   Entity <|-- Auction
   Auction --> Item
   Auction o-- BidTransaction
-  Auction --> AuctionStatus
   Auction --> BidListener : Observer
-  ItemFactory --> Item : creates
-  AuctionManager o-- Item : Singleton demo registry
+  ItemFactory --> Item : tạo theo loại
+  AuctionManager o-- Item : Singleton demo
 ```
 
-`Entity` cấp UUID. `User` và `Item` trừu tượng; lớp con override `getRole`, `getCategory`,
-`printInfo`. Trường dữ liệu đóng gói, lịch sử trả bản sao bất biến. `ItemFactory` tập trung
-khởi tạo từng loại sản phẩm. `AuctionManager` là Singleton khởi tạo lười theo holder,
-được minh họa bởi `Demo`; danh tính phiên client được App quản lý theo vòng đời màn hình.
+Entity cấp UUID. User/Item là lớp trừu tượng, các lớp con override getRole/getCategory/
+printInfo. Dữ liệu đóng gói; lịch sử trả bản sao bất biến. ItemFactory tạo sản phẩm theo
+loại. AuctionManager dùng holder để minh họa Singleton trong Demo. BidListener nối
+Observer của domain với sự kiện giá ở tầng ứng dụng.
 
-## Trạng thái
+## Trạng thái và xử lý đồng thời
 
-```mermaid
-stateDiagram-v2
-  [*] --> OPEN
-  OPEN --> RUNNING : tới giờ / bắt đầu ngay
-  OPEN --> CANCELED
-  RUNNING --> FINISHED : server hết giờ
-  RUNNING --> CANCELED
-  FINISHED --> PAID : người thắng xác nhận mô phỏng
-  FINISHED --> CANCELED
-```
+`OPEN → RUNNING → FINISHED → PAID/CANCELED`; OPEN/RUNNING cũng có thể bị hủy.
+Không có người thắng thì không được PAID. Seller chỉ sửa/xóa nháp, Admin có quyền với mọi phiên.
 
-Giá và thời gian được kiểm tra **bên trong** khóa của phiên. Không chỉ dựa vào scheduler:
-ngay tại endTime, một bid cũng bị từ chối dù clock chưa kịp đóng phiên.
-Bắt đầu sớm giữ nguyên thời lượng thay vì giữ endTime cũ.
+Mỗi Auction dùng ReentrantLock. Kiểm trạng thái, thời gian, số tiền và ghi giá/leader/history
+trong cùng khóa. Kiểm deadline ngay trong placeBid để không nhận bid trễ dù scheduler chưa
+kịp chạy. Observer được gọi sau khi nhả khóa; một observer lỗi không làm mất bid đã ghi.
 
-## Đồng thời và realtime
+AuctionApplication sắp thứ tự command, lưu snapshot và phát event bằng synchronized.
+Ghi file toàn bộ phù hợp dữ liệu nhỏ của BTL, nhưng làm giảm throughput khi nhiều phiên
+cùng ghi. Không tuyên bố hệ thống hiện tại phục vụ tải thương mại lớn.
 
-`Auction` có `ReentrantLock` riêng, lịch sử và currentPrice/leader được ghi nguyên tử.
-Observer chạy sau khi nhả khóa. Lỗi một observer không làm lượt giá đã chấp nhận thất bại.
-`AuctionApplication` sắp thứ tự các command + lưu snapshot + event bằng monitor chung để
-snapshot nhất quán giữa tài khoản và phiên. Đây là lựa chọn đơn giản cho BTL; throughput
-đa phiên bị giới hạn bởi việc ghi file tuần tự, dù từng domain aggregate có khóa riêng.
+Server dùng thread pool thông thường, giới hạn 64 kết nối và hàng đợi gửi riêng cho mỗi
+client. Client chậm bị ngắt khi hàng đợi đầy. Client nhận mạng ở luồng riêng, cập nhật GUI
+qua Platform.runLater. Timer giao diện chỉ đếm ngược tại máy, không polling mạng.
+requestId ghép phản hồi đúng yêu cầu; version ngăn snapshot cũ ghi đè giá mới.
 
-Server dùng virtual thread cho socket, một clock 100ms và hàng đợi outgoing có giới hạn
-cho mỗi client. Client chậm bị ngắt thay vì giữ khóa nghiệp vụ. Client dùng requestId để
-phân biệt phản hồi và sự kiện, timeout 10s, hủy pending khi mất mạng. JavaFX nhận dữ liệu
-qua `Platform.runLater`; timer 1s chỉ đếm ngược cục bộ, **không polling mạng**.
+## Auto-bid và anti-sniping
 
-Mỗi snapshot có version; snapshot cũ không thể ghi đè giá mới. SUBSCRIBE + snapshot được
-xử lý cùng monitor ứng dụng, tránh khoảng trống giữa đọc và theo dõi. GUI còn nhận sự kiện
-danh sách toàn cục để thấy phiên mới, đổi trạng thái và phiên bị xóa.
+PriorityQueue sắp rule theo trần giảm dần, cùng trần thì thứ tự đăng ký tăng dần. Hai rule
+đầu quyết định người dẫn và giá đủ vượt đối thủ, bị chặn tại trần người thắng. Nếu leader
+không có rule còn hiệu lực thì thêm giá họ đã thực đặt như một ứng viên. Không cần lặp từng
+bước giá đến trần; mã dùng các phép so sánh và cộng số nguyên thông thường. Mỗi giá trị
+được giới hạn 10^15 nên tổng hai giá trị vẫn an toàn với long.
 
-## Auto-bid
+Bid trong 10 giây cuối đặt endTime thành now +30 giây. Thao tác này cùng khóa với giá.
+Clock luôn đọc endTime mới, nên thời gian gia hạn không bị một timer cũ bỏ qua.
 
-Mỗi người có `(maxBid, increment, registrationSequence)` được giữ riêng trên server.
-PriorityQueue xếp theo maxBid giảm dần, cùng trần thì sequence nhỏ trước. Thêm người dẫn
-hiện tại như đối thủ có trần bằng giá họ thực đặt nếu họ không còn rule auto hợp lệ.
-Lấy hai ứng viên đầu, tính giá đủ để vượt đối thủ nhưng không vượt trần người thắng.
-Không lặp từng đồng/bước giá đến trần: O(n log n), tránh vòng lặp hàng tỷ lần.
-Bước khởi đầu cũng bị giới hạn bởi trần; lịch sử chỉ ghi giá thực được chấp nhận.
+## Lưu trữ và lỗi
 
-Anti-sniping dùng cùng khóa: nếu còn ≤10 giây, endTime thành now +30 giây. Clock luôn đọc
-endTime mới nên timer cũ không thể đóng nhầm phiên vừa được gia hạn.
+FileStore serialize tài khoản có hash mật khẩu, phiên và history/rule auto vào file cục bộ.
+Listener transient được gắn lại khi load. Không dùng ObjectInputStream cho dữ liệu socket.
+Object filter giới hạn kiểu/độ sâu; file tạm được fsync rồi move nguyên tử, process lock
+ngăn hai server ghi cùng thư mục. Ghi lỗi làm service ngừng nhận lệnh đến khi restart;
+file hỏng không bị tự reset. Mất phản hồi sau khi ghi vẫn có thể xảy ra, nên client không
+tự gửi lại lệnh tạo phiên/đặt giá. Khi gặp tình huống đó cần tải lại để kiểm kết quả.
 
-## Dữ liệu và lỗi
-
-`FileStore.State` serialize users + auctions, bao gồm UUID, hash có salt, bid, trần auto,
-trạng thái và timestamp. Listener là transient, gắn lại khi load; khóa được deserialize
-ở trạng thái mở. Không nhận ObjectInputStream qua socket. File local có ObjectInputFilter,
-version schema, giới hạn độ sâu/kích thước và process lock.
-
-Mỗi mutation thành công chỉ được trả RESULT sau khi ghi snapshot xong. Ghi lỗi làm service
-fail-stop với STORAGE_ERROR; phải sửa lỗi đĩa và restart để khôi phục trạng thái bền vững.
-Snapshot hỏng không bị tự reset. Việc mất phản hồi sau khi đã ghi vẫn có thể xảy ra: client
-phải tải lại để đối chiếu, không tự gửi lại bid/CREATE. Chưa có idempotency key xuyên restart.
-
-Chọn file DAO thay database phù hợp yêu cầu Serialization/File I/O của hướng dẫn. Có thể
-thay FileStore bằng JDBC sau này nhưng cần thiết kế giao dịch riêng, không chỉ đổi tên lớp.
+Mật khẩu dùng PBKDF2 + salt, không đưa hash vào JSON public. Socket demo chưa có TLS,
+PAID chỉ là xác nhận mô phỏng. Nếu triển khai ngoài mạng tin cậy cần thiết kế thêm.

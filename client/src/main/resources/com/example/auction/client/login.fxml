@@ -3,33 +3,38 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 <BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.auction.client.LoginController" styleClass="root-shell">
-  <left><VBox prefWidth="500" spacing="26" styleClass="brand-panel">
-    <padding><Insets top="62" right="52" bottom="55" left="52"/></padding>
-    <Label text="GAVEL / ĐẤU GIÁ TRỰC TUYẾN" styleClass="brand-kicker"/>
-    <Region VBox.vgrow="ALWAYS"/>
-    <Label text="Mỗi lượt giá.&#10;Một cơ hội mới." styleClass="hero" wrapText="true"/>
-    <Label text="Khám phá sản phẩm độc đáo, theo dõi từng lượt đấu và chạm đến món đồ bạn yêu thích." wrapText="true" styleClass="brand-copy"/>
-    <Separator/>
-    <Label text="01   Đặt giá trực tiếp&#10;&#10;02   Cập nhật tức thì&#10;&#10;03   Kết quả minh bạch" styleClass="brand-copy"/>
-    <Region VBox.vgrow="ALWAYS"/>
-    <Label text="ĐIỆN TỬ  /  NGHỆ THUẬT  /  XE CỘ" styleClass="brand-kicker"/>
-  </VBox></left>
-  <center><VBox alignment="CENTER" spacing="18">
-    <padding><Insets top="35" right="70" bottom="35" left="70"/></padding>
-    <Label text="CHÀO MỪNG TRỞ LẠI" styleClass="eyebrow"/>
-    <Label text="Bắt đầu phiên đấu của bạn" styleClass="page-title" wrapText="true"/>
-    <Label text="Đăng nhập hoặc tạo tài khoản để tham gia." styleClass="muted"/>
-    <GridPane hgap="12" vgap="8">
-      <columnConstraints><ColumnConstraints percentWidth="75"/><ColumnConstraints percentWidth="25"/></columnConstraints>
-      <Label text="Địa chỉ server"/><Label text="Cổng" GridPane.columnIndex="1"/>
-      <TextField fx:id="host" GridPane.rowIndex="1"/><TextField fx:id="port" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
-    </GridPane>
-    <VBox spacing="7"><Label text="Tên đăng nhập"/><TextField fx:id="username" promptText="Tên tài khoản (2–32 ký tự)"/>
-      <Label text="Mật khẩu"/><PasswordField fx:id="password" promptText="Ít nhất 6 ký tự" onAction="#login"/>
+  <center>
+    <VBox alignment="CENTER" spacing="16" maxWidth="470">
+      <padding>
+        <Insets top="30" right="30" bottom="30" left="30"/>
+      </padding>
+      <Label text="Hệ thống đấu giá trực tuyến" styleClass="page-title"/>
+      <Label text="Đăng nhập để xem và quản lý các phiên đấu giá." styleClass="muted" wrapText="true"/>
+      <Separator/>
+      <GridPane hgap="12" vgap="8">
+        <columnConstraints>
+          <ColumnConstraints percentWidth="73"/>
+          <ColumnConstraints percentWidth="27"/>
+        </columnConstraints>
+        <Label text="Địa chỉ server"/>
+        <Label text="Cổng" GridPane.columnIndex="1"/>
+        <TextField fx:id="host" GridPane.rowIndex="1"/>
+        <TextField fx:id="port" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+      </GridPane>
+      <VBox spacing="8">
+        <Label text="Tên đăng nhập"/>
+        <TextField fx:id="username" promptText="2–32 ký tự chữ, số hoặc dấu gạch dưới"/>
+        <Label text="Mật khẩu"/>
+        <PasswordField fx:id="password" promptText="Ít nhất 6 ký tự" onAction="#login"/>
+      </VBox>
+      <Button fx:id="login" text="Đăng nhập" maxWidth="Infinity" onAction="#login" styleClass="primary" defaultButton="true"/>
+      <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Đăng ký mới:"/>
+        <ComboBox fx:id="role" HBox.hgrow="ALWAYS"/>
+        <Button fx:id="register" text="Đăng ký" onAction="#register"/>
+      </HBox>
+      <Label text="BIDDER: người mua • SELLER: người bán" styleClass="muted"/>
+      <Label fx:id="feedback" wrapText="true" minHeight="44" styleClass="feedback"/>
     </VBox>
-    <Button fx:id="login" text="Đăng nhập →" maxWidth="Infinity" onAction="#login" styleClass="primary" defaultButton="true"/>
-    <HBox spacing="10" alignment="CENTER_LEFT"><Label text="Tài khoản mới:"/><ComboBox fx:id="role" HBox.hgrow="ALWAYS"/><Button fx:id="register" text="Đăng ký" onAction="#register"/></HBox>
-    <Label fx:id="feedback" wrapText="true" minHeight="48" styleClass="feedback"/>
-    <Label text="BIDDER: đấu giá  •  SELLER: quản lý sản phẩm" styleClass="muted" wrapText="true"/>
-  </VBox></center>
+  </center>
 </BorderPane>

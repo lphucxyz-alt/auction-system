@@ -1,4 +1,4 @@
-# GAVEL — Nội dung trình bày
+# Hệ thống đấu giá trực tuyến — Nội dung trình bày
 
 ## 1. Bài toán
 
@@ -7,7 +7,8 @@ Ba vai trò: Bidder, Seller, Admin. Công nghệ Java 21, JavaFX, Maven, Socket 
 
 ## 2. Kiến trúc
 
-JavaFX/FXML → Controller → AuctionConnection → Socket controller → Service/domain → DAO/file.
+Client và server có POM độc lập. JavaFX/FXML → Controller → AuctionConnection →
+Socket JSON → Service/domain → DAO/file. Test ghép hai bên ở integration-tests.
 Chỉ server thay đổi dữ liệu nghiệp vụ; client hiển thị snapshot có version.
 
 ## 3. OOP và patterns

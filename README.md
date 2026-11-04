@@ -1,125 +1,141 @@
-# GAVEL — Hệ thống đấu giá trực tuyến
+# Hệ thống đấu giá trực tuyến
 
-Bài tập lớn Lập trình nâng cao: ứng dụng **Java 21 + JavaFX/FXML**, server **TCP Socket JSON**,
-MVC, lưu file có serialization, kiểm thử JUnit và GitHub Actions.
+Bài tập lớn Lập trình nâng cao, dùng Java 21, JavaFX/FXML, Socket JSON và Maven.
+Người bán tạo phiên, người mua đặt giá, server cập nhật các client và tự đóng phiên khi hết giờ.
 
-## Chạy nhanh
+## Cấu trúc
 
-Yêu cầu **JDK 21** (có `javac`, không chỉ JRE), **Maven 3.8.7+**. Linux desktop cần GTK3;
-Windows/macOS dùng JavaFX native dependency Maven tự chọn. Chạy từ thư mục gốc repository.
-
-```bash
-mvn clean install
-java -jar server/target/server-1.0-SNAPSHOT.jar --demo
+```text
+server/              Ứng dụng server độc lập: domain, service, socket, DAO, test
+client/              Ứng dụng JavaFX độc lập: giao diện, controller, kết nối, test
+integration-tests/   Kiểm thử client và server cùng nhau, báo cáo coverage tổng
+scripts/             Lệnh kiểm tra, demo và xuất tài liệu
+docs/               Giao thức, kiến trúc, kế hoạch tuần, báo cáo
+pom.xml              Gom các project để kiểm tra toàn bộ, không bắt buộc khi chạy riêng
 ```
 
-Mở terminal khác cho mỗi client:
+Hai ứng dụng có POM riêng, **không phụ thuộc POM gốc hoặc artifact của nhau**. Có thể chép
+riêng `client/` hoặc `server/` sang thư mục/máy khác để build. Client không có luật đấu giá,
+entity người dùng có password hash, DAO hoặc file lưu của server. Hai bên chỉ thống nhất
+[dạng JSON gửi qua Socket](docs/protocol.md).
+
+Phần domain cũ giữ package `com.example.auction.common.model` để đọc snapshot trước đây,
+nhưng source của nó hiện chỉ nằm trong `server/`. Không còn module Maven `common` dùng chung.
+
+## Chạy trên máy
+
+Cần **JDK 21** (có cả `java` và `javac`) và **Maven 3.8.7+**. Linux chạy GUI cần desktop/GTK3.
+
+Tại thư mục gốc repository, mở terminal thứ nhất:
+
+```bash
+mvn -f server/pom.xml clean verify
+java -jar server/target/server-1.0-SNAPSHOT-all.jar --demo
+```
+
+Giữ server chạy, mở terminal thứ hai cũng ở thư mục gốc:
 
 ```bash
 mvn -f client/pom.xml javafx:run
 ```
 
-Trên môi trường cloud đã chuẩn bị toolchain, hoặc Linux/macOS:
+Lệnh client tự biên dịch mã client, không cần `mvn install` server trước.
+Để chạy hai người mua cùng lúc, mở thêm terminal và chạy lại lệnh client.
+Nhập server `127.0.0.1`, cổng `5000` trên màn hình đăng nhập.
+
+Nếu chép từng ứng dụng ra riêng, xem [server/README.md](server/README.md) và
+[client/README.md](client/README.md). Các script tiện dụng trên Linux/macOS:
 
 ```bash
-bash scripts/build.sh
 bash scripts/server.sh --demo
 bash scripts/client.sh
 ```
 
-`build.sh` chạy cả test, coverage, Checkstyle. `client.sh` cài các module vào Maven local trước
-khi mở GUI. Cần desktop/display khi chạy GUI thông thường; CI dùng Monocle headless.
-
 ### Tài khoản demo
 
-Chỉ được tạo khi truyền `--demo` **và kho người dùng đang trống**. Chế độ thông thường không có mật khẩu mặc định.
+`--demo` chỉ tạo dữ liệu nếu kho tài khoản đang trống. Không đổi mật khẩu tài khoản đã có.
 
 | Tên | Mật khẩu demo | Vai trò |
 |---|---|---|
-| admin | DemoAdmin123! | ADMIN |
-| seller | DemoSeller123! | SELLER |
-| bidder1 | DemoBidder123! | BIDDER |
-| bidder2 | DemoBidder123! | BIDDER |
+| seller | DemoSeller123! | Người bán |
+| bidder1 | DemoBidder123! | Người mua |
+| bidder2 | DemoBidder123! | Người mua |
+| admin | DemoAdmin123! | Quản trị |
 
-Dữ liệu demo nằm cùng kho dữ liệu đã chọn. Dùng thư mục riêng để thử lại:
-
-```bash
-java -Dauction.data=data/demo-2 -jar server/target/server-1.0-SNAPSHOT.jar --demo
-```
-
-Đăng ký công khai chỉ cấp BIDDER hoặc SELLER. Để tạo admin trong kho mới không dùng demo,
-đặt `AUCTION_ADMIN_USER` và `AUCTION_ADMIN_PASSWORD` trong môi trường của server; không
-đưa giá trị thật vào Git. Server chỉ bootstrap nếu chưa có admin. Username 2–32 ký tự
-ASCII chữ/số/`_`; mật khẩu 6–128 ký tự.
-
-## Chức năng
-
-- Đăng ký, đăng nhập, đăng xuất; kiểm tra quyền ở server theo danh tính của socket.
-- Seller tạo/sửa/xóa phiên nháp, mở ngay hoặc đặt lịch tự mở; Admin quản lý tất cả phiên và xem tài khoản.
-- Điện tử / nghệ thuật / xe: tên, mô tả, thông số riêng, giá khởi điểm, lịch bắt đầu/kết thúc.
-- Đặt giá bằng số nguyên VND, cập nhật người dẫn đầu, khóa từng phiên, lịch sử chỉ tăng.
-- Server đẩy giá và trạng thái qua Socket; GUI cập nhật bằng `Platform.runLater`, bỏ snapshot cũ theo version.
-- Tự đóng đúng hạn, chọn người thắng, hủy và xác nhận **thanh toán mô phỏng** bởi người thắng.
-- **Auto-bid:** trần riêng, bước giá, PriorityQueue; cùng trần ưu tiên đăng ký trước; không vượt trần.
-- **Anti-sniping:** lượt giá trong 10 giây cuối kéo thời gian còn lại lên 30 giây.
-- **LineChart realtime**, lịch sử bid, tìm kiếm/lọc trạng thái/phiên của mình.
-- Khôi phục người dùng, hash mật khẩu, phiên, lịch sử và auto-bid sau khi restart; tự đóng phiên đã hết hạn.
-
-Phiên đang RUNNING không được sửa/xóa. Hủy giữ lại lịch sử; chỉ xóa OPEN/CANCELED chưa có bid.
-Phiên FINISHED không có bid không được chuyển PAID. Số tiền tối đa 10^15 VND.
-
-## Kiểm thử và chất lượng
+Nếu đã dùng kho cũ và không nhớ mật khẩu, có thể thử với kho khác mà vẫn giữ dữ liệu cũ:
 
 ```bash
-mvn clean verify                 # JUnit + Checkstyle Google + JaCoCo
-python3 scripts/check_coverage.py # kiểm tra coverage dòng toàn bộ >= 60%
-python3 scripts/smoke.py          # JAR thật, 3 socket, kết thúc + khôi phục sau restart
+java -Dauction.data=data/demo-moi -jar server/target/server-1.0-SNAPSHOT-all.jar --demo
 ```
 
-Cloud: `source scripts/env.sh` trước các lệnh Java/Python smoke; `bash scripts/build.sh`
-tự thêm Maven settings/proxy. Các shell khác dùng JDK/Maven đã cài trên máy.
+Chế độ thông thường không có mật khẩu mặc định. Đăng ký trên GUI chỉ cấp BIDDER/SELLER.
+Để tạo admin đầu tiên, đặt `AUCTION_ADMIN_USER` và `AUCTION_ADMIN_PASSWORD` trong môi trường
+của server. Username 2–32 ký tự chữ/số/`_`, mật khẩu 6–128 ký tự.
 
-Báo cáo: `common/target/site/jacoco/index.html`, `server/target/site/jacoco/index.html`,
-`client/target/site/jacoco/index.html`. Test GUI chạy đăng nhập, bid thật, nhận bid của client
-khác và kiểm tra biểu đồ, không dùng dữ liệu giả. Ảnh test ở `client/target/screenshots/`.
-Coverage gồm cả GUI; không loại lớp nghiệp vụ ra để tăng số đo.
+## Cách sử dụng
 
-## Cấu hình và dữ liệu
+1. Seller tạo sản phẩm: tên, mô tả, nhóm sản phẩm, giá khởi điểm, lịch mở và thời lượng.
+2. Chỉ sửa/xóa khi còn nháp; bấm **Bắt đầu** để mở ngay hoặc đợi lịch server tự mở.
+3. Hai bidder chọn cùng phiên, đặt số nguyên VND lớn hơn giá hiện tại.
+4. Giá, người dẫn đầu, lịch sử và biểu đồ cập nhật qua sự kiện từ server.
+5. Hết giờ, người dẫn đầu là người thắng. Người thắng có thể xác nhận **thanh toán mô phỏng**.
 
-| Tham số server (`-D` phải đứng trước `-jar`) | Mặc định |
+Auto-bid nhận trần và bước giá; cùng trần thì người đăng ký sớm hơn được ưu tiên.
+Anti-sniping kéo thời gian còn lại lên 30 giây nếu có bid trong 10 giây cuối.
+Tắt anti-sniping khi cần demo phiên đóng nhanh. Số tiền tối đa là 10^15 VND.
+
+Admin xem danh sách tài khoản và quản lý phiên của mọi người bán. Phiên đã có bid được
+hủy nhưng vẫn giữ lịch sử; không xóa lịch sử để thay kết quả. Không có bid thì không có
+người thắng và không được xác nhận PAID.
+
+## Kiểm tra
+
+```bash
+mvn clean verify                          # server, client và integration-tests
+python3 scripts/check_architecture.py      # không import/phụ thuộc nhầm ứng dụng
+python3 scripts/check_coverage.py          # coverage tổng >= 60%, gồm cả GUI
+bash scripts/check_independent_builds.sh   # chép riêng từng ứng dụng ra ngoài để build/test
+python3 scripts/smoke.py                   # JAR server thật, nhiều socket, restart
+```
+
+Trong cloud hiện tại, chạy `source scripts/env.sh` trước các lệnh Maven/Python cần Java;
+hoặc `bash scripts/build.sh`. Script không thay toolchain trên máy nếu không có đường dẫn cloud.
+
+Test riêng từng ứng dụng: `mvn -f server/pom.xml clean verify` hoặc
+`mvn -f client/pom.xml clean verify`. Test client riêng dùng socket thử nghiệm.
+Test GUI nói chuyện với server thật ở `integration-tests/`, không nằm trong client.
+Báo cáo tổng ở `integration-tests/target/site/jacoco-aggregate/index.html`;
+ảnh từ test GUI ở `integration-tests/target/screenshots/`.
+
+GitHub Actions kiểm tra build độc lập và tích hợp; trạng thái lần chạy thực tế xem ở tab Actions.
+
+## Cấu hình và lưu dữ liệu
+
+| Tham số Java, đặt trước `-jar` | Mặc định |
 |---|---|
-| auction.host | 127.0.0.1 |
-| auction.port | 5000 (0 để hệ điều hành chọn cổng) |
-| auction.data | data |
+| `-Dauction.host=...` | 127.0.0.1 |
+| `-Dauction.port=...` | 5000 |
+| `-Dauction.data=...` | data, tương đối với thư mục chạy lệnh |
 
-GUI cho nhập host/port ở màn hình đăng nhập. Có thể truyền `-Dauction.host=...`
-`-Dauction.port=...` cho `mvn -f client/pom.xml javafx:run`. Script dùng biến
-`AUCTION_HOST`, `AUCTION_PORT`, `AUCTION_DATA` tương ứng.
+Script server cũng nhận `AUCTION_HOST`, `AUCTION_PORT`, `AUCTION_DATA`.
+Chỉ server đọc/ghi `auction-state.bin`: ghi file tạm, fsync rồi thay thế nguyên tử.
+Một thư mục dữ liệu chỉ dành cho một server. Lỗi file không bị tự ghi đè/reset.
+Dừng server trước khi sao lưu hoặc đổi kho. `data/`, `target/` đã được Git bỏ qua.
 
-Chỉ server truy cập `data/auction-state.bin`. Mỗi thay đổi được serialize vào file tạm,
-fsync rồi thay thế nguyên tử; `server.lock` ngăn hai tiến trình dùng chung kho. File lỗi
-không bị tự ghi đè; lỗi ghi khiến server ngừng nhận lệnh nghiệp vụ đến khi restart.
-Sao lưu kho khi đã dừng server. Không tải file serialization không đáng tin cậy vào kho.
-Thư mục `data/` đã được bỏ qua bởi Git.
+Bản này dùng TCP không mã hóa để demo localhost/mạng tin cậy, chưa dùng cổng thanh toán thật.
+Đổi tên các lớp serialization cần có cách chuyển đổi dữ liệu; không tự đổi package domain
+rồi xóa snapshot của người dùng. GUI hiển thị 100 lượt gần nhất, có nút tải toàn bộ lịch sử.
 
-Socket hiện dùng TCP không mã hóa, dành cho demo localhost/mạng tin cậy. Triển khai Internet
-cần bổ sung TLS và vận hành phù hợp. Hệ thống không kết nối cổng thanh toán/ngân hàng thật.
-Realtime hiển thị 100 lượt gần nhất; nút tải toàn bộ lịch sử đọc theo trang từ server.
-Danh sách phiên cũng đọc theo trang để không phình thông điệp.
+## Phân công và tài liệu
 
-## Tài liệu bàn giao
+- [Kế hoạch tuần 6–15 cho bốn mảng](docs/weekly.md)
+- [Các thay đổi thực tế và nhánh](docs/development-log.md)
+- [Kiến trúc và thuật toán](docs/architecture.md)
+- [Giao thức Socket](docs/protocol.md)
+- [Đối chiếu yêu cầu và kết quả kiểm thử](docs/requirements.md)
+- [Kịch bản demo](docs/demo.md)
+- [Báo cáo](docs/report.md), [PDF](docs/report.pdf), [Word](docs/report.docx)
+- [Nội dung trình bày](docs/slides.md), [PowerPoint](docs/presentation.pptx)
 
-- [Đối chiếu yêu cầu và bằng chứng](docs/requirements.md)
-- [Kiến trúc, OOP và thuật toán](docs/architecture.md)
-- [Giao thức JSON](docs/protocol.md)
-- [Kịch bản demo và cách giải thích code](docs/demo.md)
-- [Nội dung trình bày](docs/slides.md)
-- [Báo cáo kỹ thuật](docs/report.md) — [PDF](docs/report.pdf), [Word](docs/report.docx)
-- [Slide PowerPoint](docs/presentation.pptx) (có thể chỉnh sửa)
-
-Bản triển khai giữ namespace `com.example.auction` của repository dự phòng. Hai file code
-đính kèm dùng namespace khác và còn mock/echo; được dùng để đối chiếu hướng thiết kế,
-không nhập `.git`, `target/` hoặc dữ liệu build cũ từ ZIP vào repository này.
-
-Xuất lại báo cáo/slide: `python3 scripts/export_docs.py` với các gói Python tùy chọn
-`reportlab`, `python-pptx`, `python-docx` và font Unicode theo hướng dẫn trong script.
+Kế hoạch tuần là công việc dự kiến cho nhóm, không thay thế bằng chứng đóng góp thực tế.
+Lịch sử Git giữ ngày commit thực. Người trình bày cần đọc code và tập demo trên máy mình.

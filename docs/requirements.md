@@ -1,11 +1,11 @@
 # Đối chiếu đề BTL và bằng chứng kiểm tra
 
 Đối chiếu `2026-BTL (1).pdf`, `Hướng dẫn BTL LTNC-2026.pdf` và kế hoạch dự án đã cung cấp.
-Không áp dụng phần chia vai cá nhân theo yêu cầu người dùng; không tạo lịch sử đóng góp giả.
+Phân công bốn mảng theo `weekly.md`; thay đổi đã làm và commit được ghi ở `development-log.md`.
 
 | Yêu cầu | Vị trí triển khai | Bằng chứng |
 |---|---|---|
-| Entity, User và ba vai trò, Item và ba nhóm | common/model | Phân cấp abstract, override role/category/printInfo |
+| Entity, User và ba vai trò, Item và ba nhóm | server/src/.../common/model | Phân cấp abstract, override role/category/printInfo |
 | OOP, đóng gói | Entity, Item, User, Auction | Trường private, lịch sử bất biến, Factory |
 | Singleton / Factory / Observer | AuctionManager, ItemFactory, BidListener | Demo Singleton, tạo sản phẩm thật qua Factory, sự kiện bid thật |
 | Đăng ký/đăng nhập | UserService, AuctionServer.Session | Test đăng nhập, vai trò, trùng tài khoản, hash |
@@ -18,9 +18,9 @@ Không áp dụng phần chia vai cá nhân theo yêu cầu người dùng; khô
 | Concurrency | Auction lock + service command monitor | 100 luồng lặp 100 lần; 12 socket đồng thời |
 | Realtime qua Socket | AuctionServer + AuctionConnection | Hai client, server đẩy, version, GUI/biểu đồ cập nhật |
 | Lưu/tải serialization | FileStore | Atomic save, process lock, restart giữ người dùng/phiên/auto-bid |
-| Maven / coding convention | pom.xml | verify bắt buộc Checkstyle Google, 0 vi phạm |
+| Maven / coding convention | POM riêng server/client | Chép từng ứng dụng ra ngoài vẫn build/test được; Checkstyle 0 vi phạm |
 | JUnit / coverage ≥60% | */src/test + JaCoCo | Đã đo và kiểm ngưỡng cả GUI |
-| GitHub Actions | .github/workflows/ci.yml | Đã cấu hình; chưa có bằng chứng remote run khi chưa push |
+| GitHub Actions | .github/workflows/ci.yml | Hai job build độc lập và job tích hợp; trạng thái remote xem ở Actions |
 | Auto-bid | Auction.resolveAutoBids | PriorityQueue, cap, increment, hòa trần, lưu rule |
 | Anti-sniping | Auction.accept | Trong 10s cuối gia hạn còn 30s, test endTime |
 | Biểu đồ realtime | MainController.chart | Nhận bid từ socket thứ hai, kiểm số điểm chart |
@@ -32,18 +32,29 @@ Lệnh cuối `mvn -B -ntp verify` (kèm settings cloud) hoàn thành **BUILD SU
 
 | Module | Lượt test | Fail / Error / Skip | Coverage dòng |
 |---|---:|---|---:|
-| common | 115 | 0 / 0 / 0 | 227/294 = 77,2% |
-| server | 13 | 0 / 0 / 0 | 478/602 = 79,4% |
-| client | 2 | 0 / 0 / 0 | 383/616 = 62,2% |
-| **Tổng** | **130** | **0 / 0 / 0** | **1088/1512 = 72,0%** |
+| server | 130 | 0 / 0 / 0 | 793/889 = 89,2% |
+| client | 5 | 0 / 0 / 0 | 418/653 = 64,0% |
+| integration-tests | 2 | 0 / 0 / 0 | Gộp phần thực thi vào server/client |
+| **Tổng** | **137** | **0 / 0 / 0** | **1211/1542 = 78,5%** |
 
-130 là số **lượt thực thi**, gồm test cạnh tranh được lặp 100 lần; không phải 130 phương thức
+137 là số **lượt thực thi**, gồm test cạnh tranh được lặp 100 lần; không phải 137 phương thức
 test độc lập. Không loại GUI hoặc lớp nghiệp vụ khỏi báo cáo để tăng coverage.
-Checkstyle Google có **0 vi phạm** ở cả bốn reactor projects.
+Checkstyle Google có **0 vi phạm** ở các project. Coverage lấy từ báo cáo aggregate,
+gồm test riêng của mỗi ứng dụng và test tích hợp, không cộng trùng cùng một dòng code.
 
 `python3 scripts/smoke.py` cũng PASS trên JAR thật: login, CRUD, hai bidder, auto-bid,
 sự kiện tự đóng, xác nhận mô phỏng, restart tiến trình và kiểm dữ liệu giữ nguyên.
-Hai test bổ sung kiểm lịch sử 105 lượt với phân trang và IO ghi thất bại fail-stop.
+Test bao gồm lịch sử 105 lượt với phân trang, IO ghi thất bại fail-stop, biên max auto-bid
+và update nháp thiếu dữ liệu. Test client riêng kiểm phản hồi đến sai thứ tự và socket đóng
+giữa chừng, không import server.
+
+`bash scripts/check_independent_builds.sh` PASS: sao chép **chỉ** source/POM của server rồi
+client ra thư mục tạm và chạy clean verify, không có POM gốc hay mã ứng dụng kia.
+`check_architecture.py` PASS: hai POM không có parent/phụ thuộc app nội bộ; JAR server không
+chứa JavaFX/client, JAR client không chứa server/domain/DAO.
+
+Đã thử server mới với **bản sao** snapshot demo của phiên bản trước: load thành công,
+đăng nhập tài khoản đã có và đọc lại danh sách; không sửa file dữ liệu gốc.
 
 ![Đăng nhập từ test FXML](images/login.png)
 ![Bid thật và biểu đồ nhận dữ liệu từ client thứ hai](images/auction-live.png)
@@ -52,6 +63,6 @@ Hai test bổ sung kiểm lịch sử 105 lượt với phân trang và IO ghi t
 
 - Đọc và giải thích được toàn bộ code; tập demo trên máy sẽ trình bày.
 - Điền thông tin môn học/nhóm vào báo cáo, điều chỉnh slide theo thời lượng thực tế.
-- Commit/push khi đã xem lại thay đổi, kiểm tra run GitHub Actions thật sau push.
+- Kiểm tra run GitHub Actions thật sau push, tiếp tục ghi nhận đóng góp thực tế khi nhóm làm tiếp.
 - Lịch sử commit, trình bày và điểm chấm không thể được thay thế bởi một lượt triển khai.
 - PAID là mô phỏng, Socket demo chưa có TLS; không mô tả đây là dịch vụ thương mại hoàn chỉnh.

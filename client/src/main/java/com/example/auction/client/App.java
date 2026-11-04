@@ -16,17 +16,18 @@ public final class App extends Application {
   @Override
   public void start(Stage stage) throws Exception {
     this.stage = stage;
-    stage.setTitle("GAVEL • Sàn đấu giá trực tuyến");
-    stage.setMinWidth(1080);
-    stage.setMinHeight(720);
+    stage.setTitle("Hệ thống đấu giá trực tuyến");
     showLogin();
     stage.show();
   }
 
   private void scene(Parent root, double width, double height) {
+    stage.setMinWidth(width < 700 ? 540 : 1000);
+    stage.setMinHeight(height < 700 ? 560 : 700);
     Scene scene = new Scene(root, width, height);
     scene.getStylesheets().add(App.class.getResource("auction.css").toExternalForm());
     stage.setScene(scene);
+    stage.sizeToScene();
   }
 
   /** Closes the current session and returns to the authentication screen. */
@@ -42,7 +43,7 @@ public final class App extends Application {
     FXMLLoader loader = new FXMLLoader(App.class.getResource("login.fxml"));
     Parent root = loader.load();
     loader.<LoginController>getController().configure(this);
-    scene(root, 1120, 760);
+    scene(root, 620, 620);
   }
 
   /** Transitions from authentication to the live auction workspace. */
@@ -52,7 +53,7 @@ public final class App extends Application {
     Parent root = loader.load();
     main = loader.getController();
     main.configure(this, connection, user);
-    scene(root, 1280, 820);
+    scene(root, 1180, 780);
   }
 
   @Override

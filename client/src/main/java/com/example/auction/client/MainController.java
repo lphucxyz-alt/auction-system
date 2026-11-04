@@ -87,6 +87,8 @@ public final class MainController {
 
   @FXML
   private void initialize() {
+    table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+    history.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
     nameColumn.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().name()));
     priceColumn.setCellValueFactory(c -> new ReadOnlyStringWrapper(money(c.getValue().price())));
     statusColumn.setCellValueFactory(c -> new ReadOnlyStringWrapper(status(c.getValue().status())));

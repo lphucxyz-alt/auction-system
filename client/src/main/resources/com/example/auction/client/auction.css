@@ -1,34 +1,29 @@
-.root { -fx-font-family: "DejaVu Sans", "Arial", sans-serif; -fx-font-size: 13px; -fx-text-fill: #182c3c; -fx-background-color: #f7f8fa; }
-.root-shell { -fx-background-color: #f7f8fa; }
-.brand-panel, .topbar { -fx-background-color: #142d3c; }
-.brand-kicker { -fx-text-fill: #cfaa69; -fx-font-size: 11px; -fx-font-weight: bold; }
-.hero { -fx-text-fill: white; -fx-font-size: 44px; -fx-font-weight: bold; }
-.brand-copy { -fx-text-fill: #c3d0d7; -fx-font-size: 14px; -fx-line-spacing: 5px; }
-.logo { -fx-text-fill: #ecc488; -fx-font-size: 25px; -fx-font-weight: bold; }
-.page-title { -fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #142d3c; }
-.detail-title { -fx-font-size: 25px; -fx-font-weight: bold; -fx-text-fill: #142d3c; }
-.eyebrow { -fx-text-fill: #8a6830; -fx-font-size: 11px; -fx-font-weight: bold; }
-.muted { -fx-text-fill: #667886; -fx-font-size: 12px; }
-.price { -fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: #142d3c; }
-.price-card { -fx-background-color: #edf1f4; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #dce4e9; }
-.button { -fx-background-color: #e7edf1; -fx-text-fill: #142d3c; -fx-padding: 10 14; -fx-background-radius: 6; -fx-cursor: hand; -fx-font-weight: bold; }
-.button:hover { -fx-background-color: #d5e0e7; }
-.button.primary { -fx-background-color: #cda467; -fx-text-fill: #172c3a; }
-.button.primary:hover { -fx-background-color: #e0bb80; }
-.text-field, .password-field, .text-area, .combo-box { -fx-background-color: white; -fx-border-color: #d7e0e6; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10; }
-.text-field:focused, .password-field:focused { -fx-border-color: #b68e53; }
-.feedback { -fx-text-fill: #a3442a; }
-.table-view { -fx-background-color: white; -fx-border-color: #e2e8ec; -fx-border-radius: 6; -fx-background-radius: 6; }
-.table-view .column-header, .table-view .column-header-background .filler { -fx-background-color: #edf1f4; -fx-size: 42; }
-.table-view .column-header .label { -fx-text-fill: #667886; -fx-font-size: 10px; }
-.table-row-cell { -fx-cell-size: 48; -fx-background-color: white; -fx-border-color: transparent transparent #edf1f4 transparent; }
-.table-row-cell:selected { -fx-background-color: #e7eef3; }
-.table-row-cell:selected .text { -fx-fill: #142d3c; }
-.split-pane { -fx-background-color: #f7f8fa; -fx-padding: 0; }
-.split-pane-divider { -fx-background-color: #e4eaee; -fx-padding: 1; }
+.root {
+  -fx-font-family: "DejaVu Sans", "Arial", sans-serif;
+  -fx-font-size: 13px;
+  -fx-text-fill: #263238;
+  -fx-background-color: #f5f6f7;
+}
+.root-shell { -fx-background-color: #f5f6f7; }
+.topbar { -fx-background-color: #e8edf2; -fx-border-color: transparent transparent #c6cdd4 transparent; }
+.logo, .page-title { -fx-font-size: 20px; -fx-font-weight: bold; }
+.detail-title { -fx-font-size: 19px; -fx-font-weight: bold; }
+.eyebrow { -fx-text-fill: #4f6474; -fx-font-size: 12px; }
+.muted { -fx-text-fill: #5d6972; -fx-font-size: 12px; }
+.price { -fx-font-size: 25px; -fx-font-weight: bold; }
+.price-card { -fx-background-color: white; -fx-border-color: #d3d9df; }
+.button { -fx-padding: 8 12; -fx-cursor: hand; }
+.button.primary { -fx-background-color: #356b9c; -fx-text-fill: white; -fx-background-radius: 3; }
+.button.primary:hover { -fx-background-color: #28567f; }
+.text-field, .password-field, .text-area, .combo-box { -fx-padding: 7; }
+.feedback { -fx-text-fill: #a13226; }
+.table-view { -fx-border-color: #d3d9df; }
+.table-view .column-header { -fx-size: 34; }
+.table-row-cell { -fx-cell-size: 36; }
+.split-pane { -fx-background-color: #f5f6f7; -fx-padding: 0; }
+.split-pane-divider { -fx-background-color: #dce1e5; -fx-padding: 1; }
 .scroll-pane, .scroll-pane > .viewport { -fx-background-color: transparent; }
-.statusbar { -fx-background-color: #e7edf1; }
-.chart-series-line { -fx-stroke: #b68e53; -fx-stroke-width: 2; }
-.chart-line-symbol { -fx-background-color: #b68e53, white; }
+.statusbar { -fx-background-color: #e8edf2; }
+.chart-series-line { -fx-stroke: #356b9c; -fx-stroke-width: 2; }
+.chart-line-symbol { -fx-background-color: #356b9c, white; }
 .chart-plot-background { -fx-background-color: white; }
-.tab-pane .tab-header-area .tab-header-background { -fx-background-color: #edf1f4; }

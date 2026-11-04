@@ -45,7 +45,7 @@ def report():
     styles = {
         'body': ParagraphStyle('Body', fontName='Gavel', fontSize=10, leading=16, spaceAfter=10, alignment=TA_LEFT),
         'title': ParagraphStyle('Title', fontName='GavelBold', fontSize=22, leading=30, textColor=colors.HexColor('#142d3c'), spaceAfter=22),
-        'heading': ParagraphStyle('Heading', fontName='GavelBold', fontSize=14, leading=21, textColor=colors.HexColor('#8a6830'), spaceBefore=14, spaceAfter=10),
+        'heading': ParagraphStyle('Heading', fontName='GavelBold', fontSize=14, leading=21, textColor=colors.HexColor('#356b9c'), spaceBefore=14, spaceAfter=10),
     }
     story = []
     word = Document()
@@ -66,12 +66,12 @@ def report():
             word.add_paragraph(text)
     screenshot = DOCS / 'images/auction-live.png'
     if screenshot.exists():
-        story.extend([Spacer(1, 12), Paragraph('Giao diện từ kiểm thử kết nối server thật', styles['heading']), Image(str(screenshot), width=17 * cm, height=17 * 820 / 1280 * cm)])
+        story.extend([Spacer(1, 12), Paragraph('Giao diện từ kiểm thử kết nối server thật', styles['heading']), Image(str(screenshot), width=17 * cm, height=17 * Image(str(screenshot)).imageHeight / Image(str(screenshot)).imageWidth * cm)])
         word.add_picture(str(screenshot), width=__import__('docx').shared.Inches(6))
     def footer(canvas, document):
         canvas.setFont('Gavel', 8)
         canvas.setFillColor(colors.HexColor('#667886'))
-        canvas.drawString(2 * cm, 1.1 * cm, 'GAVEL • Bài tập lớn Lập trình nâng cao')
+        canvas.drawString(2 * cm, 1.1 * cm, 'Bài tập lớn Lập trình nâng cao — Hệ thống đấu giá')
         canvas.drawRightString(19 * cm, 1.1 * cm, str(document.page))
     SimpleDocTemplate(str(DOCS / 'report.pdf'), pagesize=(21 * cm, 29.7 * cm), leftMargin=2 * cm, rightMargin=2 * cm, topMargin=1.7 * cm, bottomMargin=1.7 * cm).build(story, onFirstPage=footer, onLaterPages=footer)
     word.save(DOCS / 'report.docx')
@@ -80,7 +80,7 @@ def report():
 def slides():
     deck = Presentation()
     deck.slide_width, deck.slide_height = Inches(13.333), Inches(7.5)
-    navy, gold, muted = RGBColor.from_string('142D3C'), RGBColor.from_string('CDA467'), RGBColor.from_string('4B6170')
+    navy, gold, muted = RGBColor.from_string('142D3C'), RGBColor.from_string('356B9C'), RGBColor.from_string('4B6170')
     sections = re.split(r'^## ', (DOCS / 'slides.md').read_text(), flags=re.M)[1:]
     for index, section in enumerate(sections, 1):
         heading, _, body = section.partition('\n')
@@ -101,7 +101,7 @@ def slides():
             paragraph.font.color.rgb = muted
             paragraph.space_after = SlidePt(25)
         footer = slide.shapes.add_textbox(Inches(0.8), Inches(6.9), Inches(11.8), Inches(0.3)).text_frame
-        footer.text = f'GAVEL / LTNC 2026                                                    {index:02d}'
+        footer.text = f'LTNC 2026 / Đấu giá trực tuyến                                                    {index:02d}'
         footer.paragraphs[0].font.size = SlidePt(11)
         footer.paragraphs[0].font.color.rgb = muted
     screenshot = DOCS / 'images/auction-live.png'
