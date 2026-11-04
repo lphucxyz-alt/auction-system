@@ -1,0 +1,39 @@
+{
+  "modules": {
+    "server": {
+      "tests": 130,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "client": {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "integration-tests": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "coverage": {
+    "server": {
+      "covered": 793,
+      "missed": 96
+    },
+    "client": {
+      "covered": 418,
+      "missed": 235
+    }
+  },
+  "checks": {
+    "independent_copies": "PASS",
+    "architecture": "PASS",
+    "packaged_jar_smoke": "PASS",
+    "previous_snapshot_copy": "PASS"
+  },
+  "checkstyle_violations": 0
+}
