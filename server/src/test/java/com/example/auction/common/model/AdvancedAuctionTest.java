@@ -8,6 +8,12 @@ import com.example.auction.common.exception.AuctionClosedException;
 import com.example.auction.common.exception.AuctionException;
 import com.example.auction.common.exception.InvalidBidException;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -163,5 +169,84 @@ class AdvancedAuctionTest {
         IllegalArgumentException.class, () -> a.update(null, now, now.plusSeconds(60), false));
     assertEquals(original, a.getItem());
     assertEquals(100, a.getCurrentPrice());
+  }
+
+  @Test
+  void mixedBidsAndRuleChangesPreservePriceAndCapsForFixedSeeds() {
+    for (int seed = 0; seed < 20; seed++) {
+      Auction a = auction(false);
+      Random random = new Random(seed);
+      Map<String, Long> caps = new HashMap<>();
+      for (int step = 0; step < 200; step++) {
+        long before = a.getCurrentPrice();
+        int historySize = a.getHistory().size();
+        String bidder = "buyer" + random.nextInt(5);
+        int operation = random.nextInt(4);
+        long manual = before + 1 + random.nextInt(100);
+        switch (operation) {
+          case 0 -> a.placeBid(bidder, manual, now);
+          case 1 -> {
+            long cap = before + 1 + random.nextInt(5000);
+            caps.put(bidder, cap);
+            a.configureAutoBid(bidder, cap, 1 + random.nextInt(100), now);
+          }
+          case 2 -> {
+            caps.remove(bidder);
+            a.removeAutoBid(bidder);
+          }
+          default -> assertThrows(InvalidBidException.class, () -> a.placeBid(bidder, before, now));
+        }
+        var history = a.getHistory();
+        long previous = before;
+        for (int i = historySize; i < history.size(); i++) {
+          BidTransaction bid = history.get(i);
+          assertTrue(bid.getAmount() > previous, "seed=" + seed + " step=" + step);
+          if (!(operation == 0 && i == historySize)) {
+            assertTrue(caps.containsKey(bid.getBidderId()));
+            assertTrue(bid.getAmount() <= caps.get(bid.getBidderId()));
+          }
+          previous = bid.getAmount();
+        }
+        assertEquals(previous, a.getCurrentPrice());
+        if (!history.isEmpty()) {
+          assertEquals(history.getLast().getBidderId(), a.getLeaderId());
+        }
+      }
+    }
+  }
+
+  @Test
+  void closingAndBidRaceHaveOneConsistentOutcome() throws Exception {
+    try (var pool = Executors.newFixedThreadPool(2)) {
+      for (int iteration = 0; iteration < 50; iteration++) {
+        Auction a = auction(false);
+        CountDownLatch go = new CountDownLatch(1);
+        var bid =
+            pool.submit(
+                () -> {
+                  go.await();
+                  try {
+                    a.placeBid("buyer", 200, now);
+                    return true;
+                  } catch (AuctionClosedException expected) {
+                    return false;
+                  }
+                });
+        var close =
+            pool.submit(
+                () -> {
+                  go.await();
+                  a.changeStatus(AuctionStatus.FINISHED);
+                  return true;
+                });
+        go.countDown();
+        boolean accepted = bid.get(3, TimeUnit.SECONDS);
+        close.get(3, TimeUnit.SECONDS);
+        assertEquals(AuctionStatus.FINISHED, a.getStatus());
+        assertEquals(accepted ? 1 : 0, a.getHistory().size());
+        assertEquals(accepted ? 200 : 100, a.getCurrentPrice());
+        assertEquals(accepted ? "buyer" : null, a.getLeaderId());
+      }
+    }
   }
 }

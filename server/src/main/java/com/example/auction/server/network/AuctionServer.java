@@ -4,6 +4,7 @@ import com.example.auction.common.exception.AuctionClosedException;
 import com.example.auction.common.exception.AuctionException;
 import com.example.auction.common.exception.AuthenticationException;
 import com.example.auction.common.exception.InvalidBidException;
+import com.example.auction.common.model.Auction;
 import com.example.auction.common.model.User;
 import com.example.auction.server.ApiException;
 import com.example.auction.server.AuctionApplication;
@@ -11,10 +12,10 @@ import com.example.auction.server.protocol.JsonLines;
 import com.example.auction.server.protocol.Message;
 import com.google.gson.JsonObject;
 import java.io.BufferedInputStream;
-import java.io.BufferedWriter;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -28,15 +29,20 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 
 /** Socket controller. Slow consumers have bounded queues and cannot hold the model lock. */
 public final class AuctionServer implements AutoCloseable {
+  private static final int MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
+  private static final int MAX_PENDING_OUTPUT_BYTES = 8 * 1024 * 1024;
   private final AuctionApplication app;
   private final ServerSocket server;
   private final ExecutorService workers = Executors.newCachedThreadPool();
   private final ScheduledExecutorService clock = Executors.newSingleThreadScheduledExecutor();
   private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
   private volatile boolean closed;
+  private final BiConsumer<String, Auction> observer;
 
   /** Creates an instance with the supplied identity and configuration. */
   public AuctionServer(AuctionApplication app, String host, int port) throws IOException {
@@ -44,10 +50,16 @@ public final class AuctionServer implements AutoCloseable {
     server = new ServerSocket();
     server.setReuseAddress(true);
     server.bind(new InetSocketAddress(host, port));
-    app.addObserver(
+    observer =
         (type, auction) -> {
+          if (closed) {
+            return;
+          }
           JsonObject payload = app.envelope(auction);
           for (Session session : sessions) {
+            if (type.equals("AUCTION_DELETED")) {
+              session.subscriptions.remove(auction.getId());
+            }
             if (session.user == null) {
               continue;
             }
@@ -60,7 +72,8 @@ public final class AuctionServer implements AutoCloseable {
               session.send(new Message(type, null, payload));
             }
           }
-        });
+        };
+    app.addObserver(observer);
   }
 
   public int getPort() {
@@ -104,7 +117,8 @@ public final class AuctionServer implements AutoCloseable {
 
   private final class Session {
     private final Socket socket;
-    private final BlockingQueue<String> output = new ArrayBlockingQueue<>(256);
+    private final BlockingQueue<byte[]> output = new ArrayBlockingQueue<>(256);
+    private final AtomicLong pendingOutputBytes = new AtomicLong();
     private final Set<String> subscriptions = ConcurrentHashMap.newKeySet();
     private volatile User user;
     private volatile boolean ended;
@@ -114,7 +128,17 @@ public final class AuctionServer implements AutoCloseable {
     }
 
     void send(Message message) {
-      if (!ended && !output.offer(message.toJson())) {
+      if (ended) {
+        return;
+      }
+      byte[] frame = (message.toJson() + "\n").getBytes(StandardCharsets.UTF_8);
+      if (frame.length > MAX_RESPONSE_BYTES + 1) {
+        disconnect();
+        return;
+      }
+      long retained = pendingOutputBytes.addAndGet(frame.length);
+      if (retained > MAX_PENDING_OUTPUT_BYTES || ended || !output.offer(frame)) {
+        pendingOutputBytes.addAndGet(-frame.length);
         disconnect();
       }
     }
@@ -133,13 +157,15 @@ public final class AuctionServer implements AutoCloseable {
           workers.submit(
               () -> {
                 try {
-                  BufferedWriter out =
-                      new BufferedWriter(
-                          new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+                  OutputStream out = new BufferedOutputStream(socket.getOutputStream());
                   while (!ended) {
-                    out.write(output.take());
-                    out.newLine();
-                    out.flush();
+                    byte[] frame = output.take();
+                    try {
+                      out.write(frame);
+                      out.flush();
+                    } finally {
+                      pendingOutputBytes.addAndGet(-frame.length);
+                    }
                   }
                 } catch (IOException | InterruptedException e) {
                   disconnect();
@@ -210,7 +236,8 @@ public final class AuctionServer implements AutoCloseable {
         case "SUBSCRIBE" -> {
           synchronized (app) {
             JsonObject out = app.execute(user, type, p);
-            if (subscriptions.size() >= 100) {
+            if (subscriptions.size() >= 100
+                && !subscriptions.contains(AuctionApplication.text(p, "auctionId"))) {
               throw new ApiException("CONFLICT", "Tối đa 100 subscriptions");
             }
             subscriptions.add(AuctionApplication.text(p, "auctionId"));
@@ -236,6 +263,7 @@ public final class AuctionServer implements AutoCloseable {
       return;
     }
     closed = true;
+    app.removeObserver(observer);
     server.close();
     clock.shutdownNow();
     sessions.forEach(Session::disconnect);

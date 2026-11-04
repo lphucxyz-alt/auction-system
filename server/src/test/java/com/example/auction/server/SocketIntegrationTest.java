@@ -404,6 +404,87 @@ class SocketIntegrationTest {
         0, restored.ok("LIST_AUCTIONS", new JsonObject()).getAsJsonArray("auctions").size());
   }
 
+  @Test
+  void brokenObserverDoesNotTurnCommittedCommandIntoAnError() throws Exception {
+    Peer seller = account("seller", "SELLER");
+    app.addObserver(
+        (type, auction) -> {
+          throw new IllegalStateException("observer failed");
+        });
+    String auctionId = create(seller, 60, false);
+    assertEquals(
+        auctionId,
+        seller.ok("GET_AUCTION", id(auctionId)).getAsJsonObject("auction").get("id").getAsString());
+  }
+
+  @Test
+  void cursorPaginationDoesNotSkipLotsWhenEarlierLotIsDeleted() throws Exception {
+    Peer seller = account("seller", "SELLER");
+    for (int i = 0; i < 55; i++) {
+      create(seller, 60, false);
+    }
+    JsonObject first = seller.ok("LIST_AUCTIONS", new JsonObject());
+    var rows = first.getAsJsonArray("auctions");
+    assertEquals(50, rows.size());
+    String cursor = rows.get(49).getAsJsonObject().get("id").getAsString();
+    seller.ok("DELETE_AUCTION", id(rows.get(0).getAsJsonObject().get("id").getAsString()));
+    JsonObject page = new JsonObject();
+    page.addProperty("afterId", cursor);
+    var remaining = seller.ok("LIST_AUCTIONS", page).getAsJsonArray("auctions");
+    assertEquals(
+        5, remaining.size(), "Xóa phần tử trang trước không được làm mất phần tử trang sau");
+    for (JsonElement a : remaining) {
+      String found = a.getAsJsonObject().get("id").getAsString();
+      assertTrue(
+          rows.asList().stream()
+              .noneMatch(b -> b.getAsJsonObject().get("id").getAsString().equals(found)));
+    }
+  }
+
+  @Test
+  void slowReaderWithLargeResponsesIsDroppedBeforeTwentyRepliesQueueUp() throws Exception {
+    Peer seller = account("seller", "SELLER");
+    for (int i = 0; i < 50; i++) {
+      JsonObject data = draft(60, false);
+      data.addProperty("description", "漢".repeat(4000));
+      data.addProperty("extra1", "漢".repeat(4000));
+      seller.ok("CREATE_AUCTION", data);
+    }
+    try (Socket slow = new Socket()) {
+      slow.setReceiveBufferSize(1024);
+      slow.connect(new java.net.InetSocketAddress("127.0.0.1", server.getPort()));
+      slow.setSoTimeout(5000);
+      var output =
+          new BufferedWriter(
+              new OutputStreamWriter(slow.getOutputStream(), StandardCharsets.UTF_8));
+      final var input = new BufferedInputStream(slow.getInputStream());
+      output.write(
+          new Message("LOGIN", "login", object("username", "seller", "password", "Secret123!"))
+              .toJson());
+      output.newLine();
+      output.flush();
+      assertEquals("RESULT", Message.fromJson(JsonLines.read(input)).getType());
+      for (int i = 0; i < 20; i++) {
+        output.write(new Message("LIST_AUCTIONS", "bulk-" + i, new JsonObject()).toJson());
+        output.newLine();
+      }
+      output.flush();
+      int complete = 0;
+      try {
+        String line;
+        while ((line = JsonLines.read(input, 4 * 1024 * 1024)) != null) {
+          complete++;
+          assertTrue(complete < 20, "Client không đọc phải bị ngắt khi hết ngân sách byte");
+        }
+      } catch (java.net.SocketTimeoutException timeout) {
+        throw new AssertionError("Server phải chủ động ngắt client chậm", timeout);
+      } catch (IOException expected) {
+        // EOF/reset hoặc frame dở dang là kết quả của việc đóng kết nối chậm.
+      }
+    }
+    assertEquals(50, seller.ok("LIST_AUCTIONS", new JsonObject()).get("total").getAsInt());
+  }
+
   static final class Peer implements AutoCloseable {
     final Socket socket;
     final BufferedWriter out;
@@ -420,7 +501,7 @@ class SocketIntegrationTest {
     }
 
     Message read() throws IOException {
-      String line = JsonLines.read(in);
+      String line = JsonLines.read(in, 4 * 1024 * 1024);
       if (line == null) {
         throw new EOFException();
       }

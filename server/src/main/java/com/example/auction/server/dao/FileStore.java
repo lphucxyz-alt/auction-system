@@ -30,6 +30,7 @@ public final class FileStore implements AutoCloseable {
   private final Path file;
   private final FileChannel channel;
   private final FileLock lock;
+  private boolean closed;
 
   /** Creates an instance with the supplied identity and configuration. */
   public FileStore(Path directory) throws IOException {
@@ -41,7 +42,7 @@ public final class FileStore implements AutoCloseable {
     FileLock acquired;
     try {
       acquired = channel.tryLock();
-    } catch (RuntimeException e) {
+    } catch (IOException | RuntimeException e) {
       channel.close();
       throw new IOException("Data directory đang được dùng", e);
     }
@@ -53,14 +54,16 @@ public final class FileStore implements AutoCloseable {
   }
 
   /** Loads the local snapshot with an object filter, preserving corrupt originals on error. */
-  public State load() throws IOException {
+  public synchronized State load() throws IOException {
+    checkOpen();
     if (!Files.exists(file)) {
       return new State(List.of(), List.of());
     }
     try (ObjectInputStream in = new ObjectInputStream(Files.newInputStream(file))) {
       in.setObjectInputFilter(
           info -> {
-            if (info.depth() > 40
+            if (info.arrayLength() > 1_000_000
+                || info.depth() > 40
                 || info.references() > 1_000_000
                 || info.streamBytes() > 100_000_000) {
               return ObjectInputFilter.Status.REJECTED;
@@ -92,7 +95,8 @@ public final class FileStore implements AutoCloseable {
   }
 
   /** Writes and fsyncs a temporary snapshot before atomic replacement. */
-  public void save(State state) throws IOException {
+  public synchronized void save(State state) throws IOException {
+    checkOpen();
     Path temp = Files.createTempFile(file.getParent(), "snapshot-", ".tmp");
     try {
       try (FileOutputStream stream = new FileOutputStream(temp.toFile());
@@ -109,8 +113,21 @@ public final class FileStore implements AutoCloseable {
   }
 
   @Override
-  public void close() throws IOException {
-    lock.release();
-    channel.close();
+  public synchronized void close() throws IOException {
+    if (closed) {
+      return;
+    }
+    closed = true;
+    try {
+      lock.release();
+    } finally {
+      channel.close();
+    }
+  }
+
+  private void checkOpen() throws IOException {
+    if (closed || !channel.isOpen() || !lock.isValid()) {
+      throw new IOException("Kho dữ liệu đã đóng");
+    }
   }
 }

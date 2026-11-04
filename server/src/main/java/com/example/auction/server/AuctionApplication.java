@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,6 +49,10 @@ public final class AuctionApplication {
 
   public void addObserver(BiConsumer<String, Auction> observer) {
     observers.add(observer);
+  }
+
+  public void removeObserver(BiConsumer<String, Auction> observer) {
+    observers.remove(observer);
   }
 
   private void attach(Auction auction) {
@@ -141,7 +146,15 @@ public final class AuctionApplication {
     tick();
     if (type.equals("LIST_AUCTIONS")) {
       int offset = p.has("offset") ? (int) number(p, "offset", 0, Integer.MAX_VALUE) : 0;
-      List<Auction> all = new ArrayList<>(auctions.values());
+      List<Auction> all =
+          auctions.values().stream().sorted(Comparator.comparing(Auction::getId)).toList();
+      if (p.has("afterId")) {
+        String afterId = text(p, "afterId");
+        offset = 0;
+        while (offset < all.size() && all.get(offset).getId().compareTo(afterId) <= 0) {
+          offset++;
+        }
+      }
       int end = (int) Math.min(all.size(), (long) offset + 50);
       JsonArray list = new JsonArray();
       for (int i = offset; i < end; i++) {
@@ -150,6 +163,7 @@ public final class AuctionApplication {
       JsonObject out = new JsonObject();
       out.add("auctions", list);
       out.addProperty("nextOffset", end < all.size() ? end : -1);
+      out.addProperty("nextAfterId", end < all.size() ? all.get(end - 1).getId() : null);
       out.addProperty("total", all.size());
       return out;
     }
@@ -333,7 +347,13 @@ public final class AuctionApplication {
   }
 
   private void emit(String type, Auction a) {
-    observers.forEach(o -> o.accept(type, a));
+    for (BiConsumer<String, Auction> observer : observers) {
+      try {
+        observer.accept(type, a);
+      } catch (RuntimeException error) {
+        System.err.println("Observer lỗi: " + error.getClass().getSimpleName());
+      }
+    }
   }
 
   /** Wraps an auction snapshot in the protocol response payload. */

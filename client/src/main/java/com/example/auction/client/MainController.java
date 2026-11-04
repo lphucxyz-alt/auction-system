@@ -16,6 +16,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -75,6 +77,13 @@ public final class MainController {
   @FXML private LineChart<String, Number> chart;
   private final Map<String, AuctionRow> rows = new LinkedHashMap<>();
   private final Set<String> deleted = new HashSet<>();
+  private final ExecutorService requests =
+      Executors.newSingleThreadExecutor(
+          task -> {
+            Thread thread = new Thread(task, "ui-requests");
+            thread.setDaemon(true);
+            return thread;
+          });
   private AuctionRow selected;
   private JsonObject user;
   private App app;
@@ -90,6 +99,8 @@ public final class MainController {
     table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
     history.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
     nameColumn.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().name()));
+    priceColumn.setComparator(MainController::compareMoney);
+    bidAmountColumn.setComparator(MainController::compareMoney);
     priceColumn.setCellValueFactory(c -> new ReadOnlyStringWrapper(money(c.getValue().price())));
     statusColumn.setCellValueFactory(c -> new ReadOnlyStringWrapper(status(c.getValue().status())));
     bidderColumn.setCellValueFactory(
@@ -158,12 +169,15 @@ public final class MainController {
 
   @FXML
   private void refresh() {
-    loadPage(0);
+    loadPage(0, null);
   }
 
-  private void loadPage(int offset) {
+  private void loadPage(int offset, String afterId) {
     JsonObject page = new JsonObject();
     page.addProperty("offset", offset);
+    if (afterId != null) {
+      page.addProperty("afterId", afterId);
+    }
     request(
         "LIST_AUCTIONS",
         page,
@@ -174,7 +188,8 @@ public final class MainController {
           renderList();
           int next = result.get("nextOffset").getAsInt();
           if (next >= 0) {
-            loadPage(next);
+            JsonElement cursor = result.get("nextAfterId");
+            loadPage(next, cursor == null || cursor.isJsonNull() ? null : cursor.getAsString());
           } else {
             feedback.setText("Đã đồng bộ • sự kiện mới được cập nhật tự động");
           }
@@ -184,11 +199,11 @@ public final class MainController {
   @FXML
   private void fullHistory() {
     if (selected != null) {
-      loadHistory(selected.id(), 0, new ArrayList<>());
+      loadHistory(selected.id(), selected.version(), 0, new ArrayList<>());
     }
   }
 
-  private void loadHistory(String auctionId, int offset, List<JsonObject> bids) {
+  private void loadHistory(String auctionId, long version, int offset, List<JsonObject> bids) {
     JsonObject p = id(auctionId);
     p.addProperty("offset", offset);
     request(
@@ -198,10 +213,15 @@ public final class MainController {
           if (selected == null || !selected.id().equals(auctionId)) {
             return;
           }
+          if (selected.version() != version) {
+            feedback.setText(
+                "Phiên vừa thay đổi. Lịch sử hiện tại được giữ; tải lại để xem đầy đủ.");
+            return;
+          }
           result.getAsJsonArray("history").forEach(b -> bids.add(b.getAsJsonObject()));
           int next = result.get("nextOffset").getAsInt();
           if (next >= 0) {
-            loadHistory(auctionId, next, bids);
+            loadHistory(auctionId, version, next, bids);
           } else {
             Collections.reverse(bids);
             history.getItems().setAll(bids);
@@ -282,11 +302,17 @@ public final class MainController {
     rendering = true;
     try {
       table.getItems().setAll(filtered);
+      table.sort();
       if (selected != null) {
         AuctionRow same =
             filtered.stream().filter(a -> a.id().equals(selected.id())).findFirst().orElse(null);
         if (same != null) {
           table.getSelectionModel().select(same);
+        } else {
+          String previousId = selected.id();
+          selected = null;
+          detail();
+          request("UNSUBSCRIBE", id(previousId), result -> {});
         }
       }
     } finally {
@@ -342,6 +368,7 @@ public final class MainController {
     List<JsonObject> reversed = new ArrayList<>(bids);
     Collections.reverse(reversed);
     history.getItems().setAll(reversed);
+    history.sort();
     XYChart.Series<String, Number> series = new XYChart.Series<>();
     int index = 0;
     for (JsonObject bid : bids) {
@@ -446,17 +473,23 @@ public final class MainController {
 
   @FXML
   private void delete() {
-    if (selected == null || !confirm("Xóa phiên nháp đã chọn?")) {
+    if (selected == null) {
+      return;
+    }
+    String deletingId = selected.id();
+    if (!confirm("Xóa phiên nháp đã chọn?")) {
       return;
     }
     request(
         "DELETE_AUCTION",
-        id(selected.id()),
+        id(deletingId),
         result -> {
           String removed = result.get("deletedId").getAsString();
           rows.remove(removed);
           deleted.add(removed);
-          selected = null;
+          if (selected != null && selected.id().equals(removed)) {
+            selected = null;
+          }
           renderList();
           detail();
           feedback.setText("Đã xóa nháp.");
@@ -571,7 +604,7 @@ public final class MainController {
     if (connection == null || disposed) {
       return;
     }
-    CompletableFuture.supplyAsync(() -> connection.request(type, payload))
+    CompletableFuture.supplyAsync(() -> connection.request(type, payload), requests)
         .thenCompose(f -> f)
         .whenComplete(
             (result, error) ->
@@ -591,6 +624,7 @@ public final class MainController {
   /** Stops local timers when leaving the auction workspace. */
   public void dispose() {
     disposed = true;
+    requests.shutdownNow();
     if (clock != null) {
       clock.stop();
     }
@@ -612,6 +646,12 @@ public final class MainController {
     JsonObject p = new JsonObject();
     p.addProperty("auctionId", id);
     return p;
+  }
+
+  private static int compareMoney(String left, String right) {
+    // Giá hiển thị theo vi-VN dùng dấu chấm phân cách hàng nghìn.
+    return Long.compare(
+        Long.parseLong(left.replace(".", "")), Long.parseLong(right.replace(".", "")));
   }
 
   private static String money(long amount) {
