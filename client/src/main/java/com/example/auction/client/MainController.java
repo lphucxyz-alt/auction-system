@@ -36,12 +36,14 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
+import javafx.util.StringConverter;
 
 /** Live auction MVC controller with versioned socket updates and local filtering. */
 public final class MainController {
@@ -72,6 +74,10 @@ public final class MainController {
   @FXML private Button usersButton;
   @FXML private Button payButton;
   @FXML private Button bidButton;
+  @FXML private Button editButton;
+  @FXML private Button startButton;
+  @FXML private Button cancelButton;
+  @FXML private Button deleteButton;
   @FXML private VBox bidControls;
   @FXML private HBox sellerControls;
   @FXML private LineChart<String, Number> chart;
@@ -103,6 +109,7 @@ public final class MainController {
     bidAmountColumn.setComparator(MainController::compareMoney);
     priceColumn.setCellValueFactory(c -> new ReadOnlyStringWrapper(money(c.getValue().price())));
     statusColumn.setCellValueFactory(c -> new ReadOnlyStringWrapper(status(c.getValue().status())));
+    statusColumn.setCellFactory(column -> statusCell());
     bidderColumn.setCellValueFactory(
         c -> new ReadOnlyStringWrapper(c.getValue().get("bidder").getAsString()));
     bidAmountColumn.setCellValueFactory(
@@ -113,6 +120,18 @@ public final class MainController {
                 TIME.format(Instant.parse(c.getValue().get("time").getAsString()))));
     statusFilter.getItems().setAll("Tất cả", "OPEN", "RUNNING", "FINISHED", "PAID", "CANCELED");
     statusFilter.setValue("Tất cả");
+    statusFilter.setConverter(
+        new StringConverter<>() {
+          @Override
+          public String toString(String value) {
+            return value == null ? "Tất cả" : status(value);
+          }
+
+          @Override
+          public String fromString(String value) {
+            return value;
+          }
+        });
     search.textProperty().addListener((o, a, b) -> renderList());
     statusFilter.valueProperty().addListener((o, a, b) -> renderList());
     mine.selectedProperty().addListener((o, a, b) -> renderList());
@@ -137,13 +156,33 @@ public final class MainController {
     clock.setCycleCount(Timeline.INDEFINITE);
   }
 
+  private TableCell<AuctionRow, String> statusCell() {
+    return new TableCell<>() {
+      @Override
+      protected void updateItem(String text, boolean empty) {
+        super.updateItem(text, empty);
+        setText(null);
+        setGraphic(null);
+        if (!empty && getTableRow().getItem() != null) {
+          Label badge = new Label(text);
+          badge
+              .getStyleClass()
+              .addAll(
+                  "status-badge",
+                  "status-" + getTableRow().getItem().status().toLowerCase(Locale.ROOT));
+          setGraphic(badge);
+        }
+      }
+    };
+  }
+
   /** Binds this controller to its application/session or existing product snapshot. */
   public void configure(App app, AuctionConnection connection, JsonObject user) {
     this.app = app;
     this.connection = connection;
     this.user = user;
     String role = user.get("role").getAsString();
-    identity.setText(user.get("username").getAsString() + " / " + role);
+    identity.setText(user.get("username").getAsString() + " / " + roleName(role));
     visible(createButton, !role.equals("BIDDER"));
     visible(usersButton, role.equals("ADMIN"));
     connection.onEvent(message -> Platform.runLater(() -> event(message)));
@@ -337,7 +376,7 @@ public final class MainController {
     if (!present) {
       title.setText("Chọn phiên để xem chi tiết");
       category.setText("SÀN ĐẤU GIÁ");
-      description.setText("");
+      description.setText("Chọn sản phẩm ở bảng bên trái để xem thông tin và theo dõi giá.");
       price.setText("— VND");
       leader.setText("");
       timing.setText("");
@@ -345,12 +384,12 @@ public final class MainController {
       chart.getData().clear();
       return;
     }
-    category.setText(selected.text("category") + " / " + status(selected.status()));
+    category.setText(categoryName(selected.text("category")) + " / " + status(selected.status()));
     title.setText(selected.name());
     description.setText(
         selected.text("description")
             + "\n"
-            + selected.text("itemInfo")
+            + itemDetails(selected)
             + "\nNgười bán: "
             + selected.text("seller"));
     price.setText(money(selected.price()) + " VND");
@@ -363,6 +402,12 @@ public final class MainController {
                     : "Đang dẫn đầu: ")
                 + leading);
     bidControls.setDisable(!selected.status().equals("RUNNING"));
+    boolean draft = selected.status().equals("OPEN");
+    editButton.setDisable(!draft);
+    startButton.setDisable(!draft);
+    deleteButton.setDisable(!draft);
+    cancelButton.setDisable(
+        !draft && !selected.status().equals("RUNNING") && !selected.status().equals("FINISHED"));
     List<JsonObject> bids = new ArrayList<>();
     selected.json().getAsJsonArray("history").forEach(b -> bids.add(b.getAsJsonObject()));
     List<JsonObject> reversed = new ArrayList<>(bids);
@@ -394,11 +439,9 @@ public final class MainController {
             + TIME.format(Instant.parse(selected.text("startTime")))
             + " • Kết thúc "
             + TIME.format(end)
-            + "\nCòn "
-            + seconds / 60
-            + " phút "
-            + seconds % 60
-            + " giây"
+            + (selected.status().equals("RUNNING")
+                ? "\nCòn " + seconds / 60 + " phút " + seconds % 60 + " giây"
+                : "\n" + status(selected.status()))
             + (selected.json().get("antiSniping").getAsBoolean() ? " • Anti-sniping bật" : ""));
   }
 
@@ -656,6 +699,32 @@ public final class MainController {
 
   private static String money(long amount) {
     return String.format(Locale.forLanguageTag("vi-VN"), "%,d", amount);
+  }
+
+  private static String itemDetails(AuctionRow row) {
+    String details = row.text("extra1") + " · " + row.text("extra2");
+    return switch (row.text("category")) {
+      case "ELECTRONICS" -> details + " tháng bảo hành";
+      case "VEHICLE" -> details + " km";
+      default -> details + " (năm sáng tác)";
+    };
+  }
+
+  private static String roleName(String code) {
+    return switch (code) {
+      case "SELLER" -> "Người bán";
+      case "ADMIN" -> "Quản trị";
+      default -> "Người mua";
+    };
+  }
+
+  private static String categoryName(String code) {
+    return switch (code) {
+      case "ELECTRONICS" -> "ĐIỆN TỬ";
+      case "ART" -> "NGHỆ THUẬT";
+      case "VEHICLE" -> "PHƯƠNG TIỆN";
+      default -> code;
+    };
   }
 
   private static String status(String code) {

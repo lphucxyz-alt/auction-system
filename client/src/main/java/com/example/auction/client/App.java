@@ -22,10 +22,9 @@ public final class App extends Application {
   }
 
   private void scene(Parent root, double width, double height) {
-    stage.setMinWidth(width < 700 ? 540 : 1000);
-    stage.setMinHeight(height < 700 ? 560 : 700);
+    stage.setMinWidth(width < 1100 ? 900 : 1000);
+    stage.setMinHeight(680);
     Scene scene = new Scene(root, width, height);
-    scene.getStylesheets().add(App.class.getResource("auction.css").toExternalForm());
     stage.setScene(scene);
     stage.sizeToScene();
   }
@@ -43,7 +42,7 @@ public final class App extends Application {
     FXMLLoader loader = new FXMLLoader(App.class.getResource("login.fxml"));
     Parent root = loader.load();
     loader.<LoginController>getController().configure(this);
-    scene(root, 620, 620);
+    scene(root, 980, 740);
   }
 
   /** Transitions from authentication to the live auction workspace. */

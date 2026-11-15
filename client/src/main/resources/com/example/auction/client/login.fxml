@@ -2,39 +2,84 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
-<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.auction.client.LoginController" styleClass="root-shell">
-  <center>
-    <VBox alignment="CENTER" spacing="16" maxWidth="470">
-      <padding>
-        <Insets top="30" right="30" bottom="30" left="30"/>
-      </padding>
-      <Label text="Hệ thống đấu giá trực tuyến" styleClass="page-title"/>
-      <Label text="Đăng nhập để xem và quản lý các phiên đấu giá." styleClass="muted" wrapText="true"/>
-      <Separator/>
-      <GridPane hgap="12" vgap="8">
-        <columnConstraints>
-          <ColumnConstraints percentWidth="73"/>
-          <ColumnConstraints percentWidth="27"/>
-        </columnConstraints>
-        <Label text="Địa chỉ server"/>
-        <Label text="Cổng" GridPane.columnIndex="1"/>
-        <TextField fx:id="host" GridPane.rowIndex="1"/>
-        <TextField fx:id="port" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
-      </GridPane>
-      <VBox spacing="8">
-        <Label text="Tên đăng nhập"/>
-        <TextField fx:id="username" promptText="2–32 ký tự chữ, số hoặc dấu gạch dưới"/>
-        <Label text="Mật khẩu"/>
-        <PasswordField fx:id="password" promptText="Ít nhất 6 ký tự" onAction="#login"/>
-      </VBox>
-      <Button fx:id="login" text="Đăng nhập" maxWidth="Infinity" onAction="#login" styleClass="primary" defaultButton="true"/>
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.example.auction.client.LoginController"
+            styleClass="root-shell" stylesheets="@auction.css" prefWidth="980" prefHeight="740">
+  <left>
+    <VBox styleClass="login-brand" prefWidth="350" spacing="24">
+      <padding><Insets top="42" right="32" bottom="36" left="36"/></padding>
       <HBox spacing="10" alignment="CENTER_LEFT">
-        <Label text="Đăng ký mới:"/>
-        <ComboBox fx:id="role" HBox.hgrow="ALWAYS"/>
-        <Button fx:id="register" text="Đăng ký" onAction="#register"/>
+        <Label text="A" styleClass="brand-mark"/>
+        <Label text="AUCTION / LIVE" styleClass="brand-wordmark"/>
       </HBox>
-      <Label text="BIDDER: người mua • SELLER: người bán" styleClass="muted"/>
-      <Label fx:id="feedback" wrapText="true" minHeight="44" styleClass="feedback"/>
+      <Region VBox.vgrow="ALWAYS"/>
+      <Label text="Đấu giá trực tiếp.&#10;Theo dõi từng lượt." wrapText="true" styleClass="hero-title"/>
+      <Label text="Một nơi để người bán mở phiên và người mua cùng cạnh tranh giá."
+             wrapText="true" styleClass="brand-copy"/>
+      <VBox spacing="14" styleClass="brand-features">
+        <Label text="01   Chọn sản phẩm bạn quan tâm"/>
+        <Label text="02   Đặt giá và theo dõi trực tiếp"/>
+        <Label text="03   Xem kết quả khi hết thời gian"/>
+      </VBox>
+      <Region VBox.vgrow="ALWAYS"/>
+      <Label text="HỆ THỐNG ĐẤU GIÁ TRỰC TUYẾN" styleClass="brand-caption"/>
     </VBox>
+  </left>
+  <center>
+    <ScrollPane fitToWidth="true" hbarPolicy="NEVER">
+      <content>
+        <VBox spacing="14" styleClass="login-form" maxWidth="Infinity">
+          <padding><Insets top="34" right="42" bottom="28" left="42"/></padding>
+          <Label text="CHÀO MỪNG BẠN TRỞ LẠI" styleClass="eyebrow"/>
+          <Label text="Đăng nhập" styleClass="login-title"/>
+          <Label text="Dùng tài khoản đã đăng ký trên server để tiếp tục." wrapText="true" styleClass="muted"/>
+          <GridPane hgap="12" vgap="7">
+            <columnConstraints>
+              <ColumnConstraints percentWidth="73"/>
+              <ColumnConstraints percentWidth="27"/>
+            </columnConstraints>
+            <Label text="Địa chỉ server" styleClass="field-label"/>
+            <Label text="Cổng" styleClass="field-label" GridPane.columnIndex="1"/>
+            <TextField fx:id="host" promptText="127.0.0.1" GridPane.rowIndex="1"/>
+            <TextField fx:id="port" promptText="5000" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+          </GridPane>
+          <VBox spacing="7">
+            <Label text="Tên đăng nhập" styleClass="field-label"/>
+            <TextField fx:id="username" promptText="Nhập tên đăng nhập"/>
+            <Label text="Mật khẩu" styleClass="field-label"/>
+            <PasswordField fx:id="password" promptText="Nhập mật khẩu" onAction="#login"/>
+          </VBox>
+          <Button fx:id="login" text="Đăng nhập  →" maxWidth="Infinity" onAction="#login" styleClass="primary" defaultButton="true"/>
+          <Label fx:id="feedback" text="Chạy server trước, sau đó đăng nhập tại đây."
+                 wrapText="true" minHeight="38" styleClass="feedback"/>
+          <TitledPane text="Chưa có tài khoản? Đăng ký" expanded="false" animated="false">
+            <content>
+              <VBox spacing="10">
+                <Label text="Điền tên và mật khẩu ở trên (ít nhất 6 ký tự), chọn vai trò rồi đăng ký."
+                       wrapText="true" styleClass="muted"/>
+                <HBox spacing="12" alignment="CENTER_LEFT">
+                  <ComboBox fx:id="role" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                  <Button fx:id="register" text="Tạo tài khoản" onAction="#register"/>
+                </HBox>
+              </VBox>
+            </content>
+          </TitledPane>
+          <TitledPane text="Tài khoản dùng thử trên máy này" expanded="true" animated="false">
+            <content>
+              <VBox spacing="9">
+                <Label text="Server cần chạy với --demo trên kho dữ liệu mới. Chọn để điền, rồi bấm Đăng nhập."
+                       wrapText="true" styleClass="muted"/>
+                <FlowPane hgap="8" vgap="8">
+                  <Button text="Người bán" userData="seller" onAction="#chooseDemo"/>
+                  <Button text="Người mua 1" userData="bidder1" onAction="#chooseDemo"/>
+                  <Button text="Người mua 2" userData="bidder2" onAction="#chooseDemo"/>
+                  <Button text="Quản trị" userData="admin" onAction="#chooseDemo"/>
+                </FlowPane>
+              </VBox>
+            </content>
+          </TitledPane>
+        </VBox>
+      </content>
+    </ScrollPane>
   </center>
 </BorderPane>

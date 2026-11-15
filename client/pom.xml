@@ -7,6 +7,7 @@
   <properties>
     <auction.host>127.0.0.1</auction.host>
     <auction.port>5000</auction.port>
+    <auction.username></auction.username>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -62,6 +63,7 @@
           <options>
             <option>-Dauction.host=${auction.host}</option>
             <option>-Dauction.port=${auction.port}</option>
+            <option>-Dauction.username=${auction.username}</option>
           </options>
         </configuration>
       </plugin>

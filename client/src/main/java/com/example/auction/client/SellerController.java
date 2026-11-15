@@ -7,6 +7,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.util.StringConverter;
 
 /** Validates the FXML product and scheduling form. */
 public final class SellerController {
@@ -25,9 +26,38 @@ public final class SellerController {
   private void initialize() {
     category.getItems().setAll("ELECTRONICS", "ART", "VEHICLE");
     category.setValue("ELECTRONICS");
+    category.setConverter(
+        new StringConverter<>() {
+          @Override
+          public String toString(String value) {
+            return switch (value == null ? "" : value) {
+              case "ART" -> "Nghệ thuật";
+              case "VEHICLE" -> "Phương tiện";
+              default -> "Điện tử";
+            };
+          }
+
+          @Override
+          public String fromString(String value) {
+            return value;
+          }
+        });
+    category.valueProperty().addListener((o, old, value) -> categoryHints());
+    categoryHints();
     delay.setText("300");
     duration.setText("180");
     extra2.setText("0");
+  }
+
+  private void categoryHints() {
+    String value = category.getValue();
+    extra1.setPromptText("ART".equals(value) ? "Tác giả" : "Hãng sản xuất");
+    extra2.setPromptText(
+        switch (value) {
+          case "ART" -> "Năm sáng tác";
+          case "VEHICLE" -> "Số km đã đi";
+          default -> "Số tháng bảo hành";
+        });
   }
 
   /** Binds this controller to its application/session or existing product snapshot. */

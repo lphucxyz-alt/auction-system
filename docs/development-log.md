@@ -32,3 +32,16 @@ lưu file, observer và GUI; các lỗi cùng test tái hiện nằm ở [audit.
 Kết quả sau sửa: 151 lượt test, 0 failure/error/skip, Checkstyle 0 vi phạm, coverage
 1327/1653 dòng (80,3%). Bản JAR thật qua thử 24 bidder đồng thời, 400 bid có client không
 đọc, restart và đọc bản sao snapshot cũ. Hai ứng dụng vẫn build/test từ thư mục sao chép riêng.
+
+## Giao diện và chạy demo trên máy cá nhân — 15/11/2026
+
+Mốc trước sửa: `ac2b632`. Đổi Login/danh sách/chi tiết/form Seller bằng FXML và CSS
+chung, thêm điền tài khoản demo, hướng dẫn đăng ký, nhãn tiếng Việt và nút theo trạng thái.
+Script server luôn build JAR; `demo-server.sh` dùng kho riêng; client nhận username tùy chọn.
+Thêm hướng dẫn 5–6 terminal, Scene Builder và review có nguồn tham khảo.
+
+Build sạch: 152 lượt test, không failure/error/skip, Checkstyle 0 vi phạm. Coverage của
+lần chạy cuối ghi ở `ui-validation.json`. Smoke dùng 5 kết nối client thật, đăng ký,
+admin, bid, sự kiện, kết thúc và restart. Build bản sao độc lập của hai app đều đạt.
+GUI kiểm tra headless, không coi đây là kiểm thử 5 tiến trình GUI hoặc thử tải Internet.
+Ảnh chụp thật ở `docs/images/`; giới hạn thiết kế ở `review-and-references.md`.

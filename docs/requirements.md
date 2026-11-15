@@ -26,7 +26,11 @@ Phân công bốn mảng theo `weekly.md`; thay đổi đã làm và commit đư
 | Biểu đồ realtime | MainController.chart | Nhận bid từ socket thứ hai, kiểm số điểm chart |
 | Tài liệu, báo cáo, demo | README + docs | Hướng dẫn chạy, giao thức, kiến trúc, báo cáo, slide |
 
-## Kết quả tại môi trường hiện tại
+## Kết quả audit trước đợt sửa giao diện (ac2b632)
+
+Số liệu dưới đây thuộc lần audit cũ. Kết quả sau sửa UI ngày 15/11/2026 nằm ở
+[ui-validation.json](ui-validation.json); phạm vi và giới hạn ở
+[review-and-references.md](review-and-references.md).
 
 Lệnh cuối `mvn -B -ntp verify` (kèm settings cloud) hoàn thành **BUILD SUCCESS**:
 
@@ -55,6 +59,8 @@ chứa JavaFX/client, JAR client không chứa server/domain/DAO.
 
 Đã thử server mới với **bản sao** snapshot demo của phiên bản trước: load thành công,
 đăng nhập tài khoản đã có và đọc lại danh sách; không sửa file dữ liệu gốc.
+
+Ảnh dưới đây đã cập nhật theo giao diện ngày 15/11/2026; số liệu audit cũ ở trên giữ nguyên.
 
 ![Đăng nhập từ test FXML](images/login.png)
 ![Bid thật và biểu đồ nhận dữ liệu từ client thứ hai](images/auction-live.png)

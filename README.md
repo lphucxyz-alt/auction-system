@@ -3,6 +3,13 @@
 Bài tập lớn Lập trình nâng cao, dùng Java 21, JavaFX/FXML, Socket JSON và Maven.
 Người bán tạo phiên, người mua đặt giá, server cập nhật các client và tự đóng phiên khi hết giờ.
 
+**Bắt đầu trên máy cá nhân:** [Hướng dẫn 5–6 terminal, tài khoản và Scene Builder](docs/local-demo.md).
+Xem [review repo phụ, nguồn tham khảo và giới hạn còn lại](docs/review-and-references.md).
+
+![Đăng nhập và tài khoản demo](docs/images/login.png)
+
+Ảnh chụp từ test dùng cổng ngẫu nhiên; khi chạy bình thường dùng cổng `5000`.
+
 ## Cấu trúc
 
 ```text
@@ -50,6 +57,14 @@ Nếu chép từng ứng dụng ra riêng, xem [server/README.md](server/README.
 bash scripts/server.sh --demo
 bash scripts/client.sh
 ```
+
+Để tách kho demo khỏi dữ liệu cũ, dùng `bash scripts/demo-server.sh` (kho
+`data/local-demo`). Mở thêm terminal chạy `bash scripts/client.sh seller`,
+`bash scripts/client.sh bidder1`, `bash scripts/client.sh bidder2`,
+`bash scripts/client.sh admin`. Tham số chỉ điền username; trên GUI chọn tài khoản
+dùng thử để điền mật khẩu rồi đăng nhập. Đăng ký thêm bidder mới nếu cần client thứ năm.
+
+Script server build lại JAR trước mỗi lần chạy. Không chạy `mvn clean` khi client đang mở.
 
 ### Tài khoản demo
 
@@ -135,6 +150,8 @@ rồi xóa snapshot của người dùng. GUI hiển thị 100 lượt gần nh�
 - [Giao thức Socket](docs/protocol.md)
 - [Đối chiếu yêu cầu và kết quả kiểm thử](docs/requirements.md)
 - [Kiểm tra lỗi, regression và giới hạn còn lại](docs/audit.md)
+- [Review mới, nguồn nổi tiếng tham khảo và giới hạn thiết kế](docs/review-and-references.md)
+- [Chạy nhiều terminal và chỉnh CSS/FXML trong Scene Builder](docs/local-demo.md)
 - [Kịch bản demo](docs/demo.md)
 - [Báo cáo](docs/report.md), [PDF](docs/report.pdf), [Word](docs/report.docx)
 - [Nội dung trình bày](docs/slides.md), [PowerPoint](docs/presentation.pptx)

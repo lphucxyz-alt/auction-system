@@ -36,6 +36,7 @@ import javafx.scene.chart.LineChart;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.image.WritableImage;
@@ -107,8 +108,18 @@ class ClientWorkflowTest {
           screenshot(stage, "login.png");
           fx(
               () -> {
-                ((TextField) stage.getScene().lookup("#username")).setText("bidder1");
-                ((PasswordField) stage.getScene().lookup("#password")).setText("DemoBidder123!");
+                stage.getScene().getRoot().lookupAll(".button").stream()
+                    .filter(node -> node instanceof Button b && "bidder1".equals(b.getUserData()))
+                    .map(node -> (Button) node)
+                    .findFirst()
+                    .orElseThrow()
+                    .fire();
+                assertEquals(
+                    "bidder1", ((TextField) stage.getScene().lookup("#username")).getText());
+                assertEquals(
+                    "DemoBidder123!",
+                    ((PasswordField) stage.getScene().lookup("#password")).getText());
+                assertTrue(stage.getScene().lookup("#table") == null);
                 ((Button) stage.getScene().lookup("#login")).fire();
                 return null;
               });
@@ -190,6 +201,29 @@ class ClientWorkflowTest {
           screenshot(stage, "auction-live.png");
           fx(
               () -> {
+                ((ScrollPane) stage.getScene().lookup(".scroll-pane")).setVvalue(1);
+                return null;
+              });
+          screenshot(stage, "auction-chart.png");
+          fx(
+              () -> {
+                Parent root = stage.getScene().getRoot();
+                stage.getScene().setRoot(new javafx.scene.layout.Pane());
+                stage.setScene(new Scene(root, 1000, 700));
+                stage.sizeToScene();
+                stage.getScene().getRoot().applyCss();
+                stage.getScene().getRoot().layout();
+                assertEquals(1000, stage.getScene().getWidth());
+                assertEquals(700, stage.getScene().getHeight());
+                var button = stage.getScene().lookup("#bidButton");
+                assertTrue(
+                    button.getBoundsInParent().getMaxX()
+                        <= button.getParent().getLayoutBounds().getWidth() + 1);
+                return null;
+              });
+          screenshot(stage, "auction-compact.png");
+          fx(
+              () -> {
                 @SuppressWarnings("unchecked")
                 var column =
                     (javafx.scene.control.TableColumn<AuctionRow, String>)
@@ -209,20 +243,34 @@ class ClientWorkflowTest {
                 ((TextField) stage.getScene().lookup("#search")).clear();
                 return null;
               });
-          fx(
-              () -> {
-                FXMLLoader loader = new FXMLLoader(App.class.getResource("seller.fxml"));
-                Parent form = loader.load();
-                SellerController controller = loader.getController();
-                controller.configure(null);
-                ((TextField) form.lookup("#name")).setText("Test product");
-                ((TextField) form.lookup("#startingPrice")).setText("1000");
-                assertEquals("Test product", controller.payload().get("name").getAsString());
-                assertEquals(1000, controller.payload().get("startingPrice").getAsLong());
-                ((TextField) form.lookup("#startingPrice")).setText("invalid");
-                assertThrows(IllegalArgumentException.class, controller::payload);
-                return null;
-              });
+          Stage sellerPreview =
+              fx(
+                  () -> {
+                    FXMLLoader loader = new FXMLLoader(App.class.getResource("seller.fxml"));
+                    Parent form = loader.load();
+                    SellerController controller = loader.getController();
+                    controller.configure(null);
+                    ((TextField) form.lookup("#name")).setText("Test product");
+                    ((TextField) form.lookup("#startingPrice")).setText("1000");
+                    assertEquals("Test product", controller.payload().get("name").getAsString());
+                    assertEquals(1000, controller.payload().get("startingPrice").getAsLong());
+                    ((TextField) form.lookup("#startingPrice")).setText("invalid");
+                    assertThrows(IllegalArgumentException.class, controller::payload);
+                    ((TextField) form.lookup("#startingPrice")).setText("1000");
+                    Stage preview = new Stage();
+                    preview.setScene(new Scene(form));
+                    preview.show();
+                    return preview;
+                  });
+          try {
+            screenshot(sellerPreview, "seller.png");
+          } finally {
+            fx(
+                () -> {
+                  sellerPreview.close();
+                  return null;
+                });
+          }
           fx(
               () -> {
                 app.showLogin();
@@ -238,7 +286,13 @@ class ClientWorkflowTest {
           await(
               () -> {
                 try {
-                  return fx(() -> stage.getScene().lookup("#usersButton") != null);
+                  return fx(
+                      () ->
+                          stage.getScene().lookup("#usersButton") != null
+                              && ((TableView<?>) stage.getScene().lookup("#table"))
+                                      .getItems()
+                                      .size()
+                                  == 3);
                 } catch (Exception e) {
                   throw new RuntimeException(e);
                 }
@@ -247,8 +301,23 @@ class ClientWorkflowTest {
               () -> {
                 assertTrue(stage.getScene().lookup("#usersButton").isVisible());
                 assertTrue(stage.getScene().lookup("#createButton").isVisible());
+                @SuppressWarnings("unchecked")
+                TableView<AuctionRow> table =
+                    (TableView<AuctionRow>) stage.getScene().lookup("#table");
+                table
+                    .getSelectionModel()
+                    .select(
+                        table.getItems().stream()
+                            .filter(a -> a.id().equals(auctionId))
+                            .findFirst()
+                            .orElseThrow());
+                assertTrue(stage.getScene().lookup("#editButton").isDisabled());
+                assertTrue(stage.getScene().lookup("#deleteButton").isDisabled());
+                assertTrue(stage.getScene().lookup("#startButton").isDisabled());
+                assertFalse(stage.getScene().lookup("#cancelButton").isDisabled());
                 return null;
               });
+          screenshot(stage, "admin.png");
         } finally {
           fx(
               () -> {
@@ -257,6 +326,93 @@ class ClientWorkflowTest {
                 return null;
               });
         }
+      }
+    }
+  }
+
+  @Test
+  void registrationLogsInThroughServerAndUnavailableServerShowsUsefulError() throws Exception {
+    try (FileStore store = new FileStore(data);
+        AuctionServer server = new AuctionServer(new AuctionApplication(store), "127.0.0.1", 0)) {
+      server.start();
+      System.setProperty("auction.port", Integer.toString(server.getPort()));
+      App app = new App();
+      Stage stage =
+          fx(
+              () -> {
+                Stage window = new Stage();
+                app.start(window);
+                ((TextField) window.getScene().lookup("#username")).setText("new_bidder");
+                ((PasswordField) window.getScene().lookup("#password")).setText("NewBidder123!");
+                ((Button) window.getScene().lookup("#register")).fire();
+                return window;
+              });
+      try {
+        await(
+            () -> {
+              try {
+                return fx(
+                    () ->
+                        ((Label) stage.getScene().lookup("#feedback"))
+                            .getText()
+                            .startsWith("Đăng ký thành công"));
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+            });
+        fx(
+            () -> {
+              assertEquals("", ((PasswordField) stage.getScene().lookup("#password")).getText());
+              assertTrue(stage.getScene().lookup("#table") == null);
+              ((PasswordField) stage.getScene().lookup("#password")).setText("NewBidder123!");
+              ((Button) stage.getScene().lookup("#login")).fire();
+              return null;
+            });
+        await(
+            () -> {
+              try {
+                return fx(
+                    () ->
+                        stage.getScene().lookup("#identity") instanceof Label label
+                            && label.getText().equals("new_bidder / Người mua"));
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+            });
+        server.close();
+        fx(
+            () -> {
+              app.showLogin();
+              ((TextField) stage.getScene().lookup("#username")).setText("new_bidder");
+              ((PasswordField) stage.getScene().lookup("#password")).setText("NewBidder123!");
+              ((Button) stage.getScene().lookup("#login")).fire();
+              return null;
+            });
+        await(
+            () -> {
+              try {
+                return fx(
+                    () ->
+                        ((Label) stage.getScene().lookup("#feedback"))
+                            .getText()
+                            .startsWith("Không kết nối được server"));
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+            });
+        fx(
+            () -> {
+              assertFalse(stage.getScene().lookup("#login").isDisabled());
+              assertTrue(stage.getScene().lookup("#feedback").getStyleClass().contains("error"));
+              return null;
+            });
+      } finally {
+        fx(
+            () -> {
+              app.stop();
+              stage.close();
+              return null;
+            });
       }
     }
   }

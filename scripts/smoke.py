@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real packaged-server smoke test: two bidders, pushed winner, payment and restart."""
+"""Real packaged-server smoke test: five clients, bidding, payment and restart."""
 import json
 import os
 from pathlib import Path
@@ -80,11 +80,15 @@ def main():
         process, port = start(data)
         peers = []
         try:
-            seller, one, two = [Peer(port) for _ in range(3)]
-            peers.extend([seller, one, two])
+            seller, one, two, admin, three = [Peer(port) for _ in range(5)]
+            peers.extend([seller, one, two, admin, three])
             seller.login('seller', 'DemoSeller123!')
             one.login('bidder1', 'DemoBidder123!')
             two.login('bidder2', 'DemoBidder123!')
+            admin.login('admin', 'DemoAdmin123!')
+            three.request('REGISTER', username='bidder3', password='DemoBidder123!', role='BIDDER')
+            three.login('bidder3', 'DemoBidder123!')
+            assert len(admin.request('LIST_USERS')['users']) == 5
             lot = seller.request('CREATE_AUCTION', name='Smoke lot', description='Packaged JAR check',
                                  category='ART', extra1='Demo artist', extra2=2026,
                                  startingPrice=100, startDelaySeconds=300, durationSeconds=2,
@@ -92,8 +96,11 @@ def main():
             identifier = lot['id']
             seller.request('START_AUCTION', auctionId=identifier)
             one.request('SUBSCRIBE', auctionId=identifier)
+            three.request('SUBSCRIBE', auctionId=identifier)
             one.request('PLACE_BID', auctionId=identifier, amount=200)
             two.request('AUTO_BID', auctionId=identifier, maxBid=1000, increment=10)
+            assert three.request('GET_AUCTION', auctionId=identifier)['auction']['currentPrice'] == 210
+            assert any(event['type'] == 'NEW_BID' for event in three.events), three.events
             while True:
                 event = one.read()
                 if event['type'] == 'AUCTION_FINISHED' and event['payload']['auction']['id'] == identifier:
@@ -101,7 +108,7 @@ def main():
                     break
             paid = two.request('PAY_AUCTION', auctionId=identifier)['auction']
             assert paid['status'] == 'PAID' and paid['currentPrice'] == 210, paid
-            print('PASS: real JAR, login, CRUD, two bidders, auto-bid, push, automatic close, simulated payment')
+            print('PASS: real JAR, five connected clients, registration, admin, bidding, auto-bid, push, automatic close, simulated payment')
         finally:
             for peer in peers:
                 peer.close()

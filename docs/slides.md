@@ -15,7 +15,8 @@ Chỉ server thay đổi dữ liệu nghiệp vụ; client hiển thị snapshot
 
 Entity → User/Item/Auction; User → Bidder/Seller/Admin; Item → Electronics/Art/Vehicle.
 Encapsulation, abstraction, inheritance, polymorphism. Factory tạo Item, Observer phát bid,
-Singleton holder trong AuctionManager. Chiếu sơ đồ ở architecture.md.
+Singleton holder trong AuctionManager dùng cho demo, không quản lý phiên của server thật.
+ItemFactory hiện là Simple Factory. Chiếu sơ đồ ở architecture.md và giải thích giới hạn.
 
 ## 4. Đồng thời
 
@@ -44,5 +45,5 @@ Chạy kịch bản trong demo.md.
 ## 8. Giới hạn và hướng phát triển
 
 Snapshot file ghi đồng bộ phù hợp BTL, chưa tối ưu throughput nhiều phiên.
-Hướng tiếp theo: JDBC transaction, TLS, idempotency xuyên restart, phân trang theo cursor,
+Hướng tiếp theo: JDBC transaction, TLS, idempotency xuyên restart,
 triển khai desktop installers và thanh toán qua nhà cung cấp thực khi có yêu cầu.

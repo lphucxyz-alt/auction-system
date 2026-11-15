@@ -20,3 +20,9 @@ Nếu server ở máy khác, nhập IP của máy đó; server phải được c
 Test của client dùng socket thử nghiệm, không import code server. Test mở GUI và server
 thật cùng lúc đặt ở `integration-tests/` và chạy khi build toàn repo.
 Client không giữ mật khẩu hash, luật đấu giá, dữ liệu serialization hay DAO.
+
+Ba FXML dùng chung `auction.css` qua `stylesheets="@auction.css"`, nên Scene Builder
+đọc được CSS cạnh file. Đổi bảng màu ở đầu CSS, bố cục ở FXML; giữ fx:id/onAction.
+Chạy lại `mvn javafx:run` sau khi sửa để copy resource mới. Tài khoản demo cần server
+đã seed; nút dùng thử chỉ điền tên/mật khẩu. Nếu có cả repo, xem
+[hướng dẫn nhiều terminal](../docs/local-demo.md) và [review](../docs/review-and-references.md).

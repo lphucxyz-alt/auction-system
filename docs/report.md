@@ -73,3 +73,19 @@ và kịch bản demo. Không thể suy ra điểm chấm tuyệt đối từ vi
 hiểu code và trình bày. File snapshot ghi đồng bộ là lựa chọn đơn giản, chưa tối ưu cho tải
 lớn. TCP không mã hóa nên demo ở localhost hoặc mạng tin cậy. Thanh toán thật, database
 server, triển khai Internet và installers không thuộc bản triển khai hiện tại.
+
+## 8. Cập nhật giao diện và review ngày 15/11/2026
+
+Giao diện dùng CSS tập trung với bảng màu chỉnh ở đầu file; FXML mở được để thiết kế
+bằng Scene Builder. Login có hướng dẫn server/tài khoản demo và đăng ký. Nút thao tác
+được bật/tắt theo trạng thái, lỗi kết nối giải thích bước cần kiểm tra.
+
+Build sạch trên máy Linux/JDK 21 có 152 lượt test không lỗi, Checkstyle 0 vi phạm;
+coverage dòng gộp 1418/1735 (81,7%). Smoke JAR chạy 5 kết nối client và kiểm restart;
+GUI được render bằng Monocle, gồm scene 1000×700. Đây không phải thử tải 5 tiến trình GUI.
+Số liệu và phạm vi lưu riêng ở [ui-validation.json](ui-validation.json).
+
+Review còn chỉ ra Singleton AuctionManager chủ yếu phục vụ demo và ItemFactory hiện
+là Simple Factory, không phải Factory Method GoF theo nghĩa chặt. Không suy ra đã đạt
+đủ điểm pattern từ tên lớp. Xem [review-and-references.md](review-and-references.md)
+và [hướng dẫn chạy nhiều terminal](local-demo.md).
