@@ -24,8 +24,8 @@ phiên đã có giá, chỉ Admin được hủy trước khi thanh toán.
 
 Các sơ đồ và quyết định chi tiết ở [architecture.md](architecture.md), giao thức ở
 [protocol.md](protocol.md). `server` chứa domain, Socket controller, service và DAO. `client` có FXML/CSS, controller,
-view model và kết nối riêng. Cả hai có POM độc lập, không import lớp của nhau. Bộ test GUI
-với server thật nằm trong `integration-tests`; nó không trở thành dependency của client.
+view model và kết nối riêng. Client không có server/domain dependency ở runtime. Bộ test GUI
+với server thật nằm trong test scope của `client`, không vào gói chạy của client.
 Mỗi trách nhiệm nằm ở một tầng, không dùng dữ liệu mock trong màn hình vận hành.
 
 AuctionManager Singleton sở hữu vòng đời quy trình server. Mỗi ItemType override một

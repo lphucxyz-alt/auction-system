@@ -7,8 +7,9 @@ Ba vai trò: Bidder, Seller, Admin. Công nghệ Java 21, JavaFX, Maven, Socket 
 
 ## 2. Kiến trúc
 
-Client và server có POM độc lập. JavaFX/FXML → Controller → AuctionConnection →
-Socket JSON → Service/domain → DAO/file. Test ghép hai bên ở integration-tests.
+Client và server là hai ứng dụng riêng trong parent Maven ba module. JavaFX/FXML →
+Controller → AuctionConnection → Socket JSON → Service/domain → DAO/file. Test GUI ghép
+hai bên trong test scope của client.
 Chỉ server thay đổi dữ liệu nghiệp vụ; client hiển thị snapshot có version.
 
 ## 3. OOP và patterns

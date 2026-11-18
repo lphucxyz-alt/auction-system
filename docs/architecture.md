@@ -4,12 +4,12 @@
 
 ```mermaid
 flowchart LR
-  subgraph Client[client — build độc lập]
+  subgraph Client[client — tiến trình riêng]
     V[FXML] --> C[Controller]
     C <--> M[AuctionRow]
     C <--> N[AuctionConnection + client.protocol]
   end
-  subgraph Server[server — build độc lập]
+  subgraph Server[server — ứng dụng riêng]
     G[AuctionManager Singleton] --> S[Socket + server.protocol]
     S --> A[AuctionApplication]
     A --> D[Domain + UserService]
@@ -17,13 +17,13 @@ flowchart LR
     DAO --> F[(File dữ liệu)]
   end
   N <-->|TCP, một dòng JSON mỗi thông điệp| S
-  T[integration-tests] -.kiểm tra qua API công khai.-> Client
+  T[client test scope] -.kiểm tra qua API công khai.-> Client
   T -.kiểm tra qua API công khai.-> Server
 ```
 
-Mỗi ứng dụng có POM không có parent và không phụ thuộc artifact `com.example.auction`
-của ứng dụng khác. POM gốc chỉ gom hai ứng dụng và `integration-tests` khi cần kiểm tra
-cả hệ thống. Test tích hợp không được đóng gói vào JAR của server hoặc client.
+POM gốc quản lý ba module `common`, `server`, `client`. Server phụ thuộc common. Client
+chỉ phụ thuộc server ở test scope để chạy GUI với server thật; mã runtime client không
+phụ thuộc domain hay server. Test không được đóng gói vào JAR chạy.
 
 Client giữ dữ liệu hiển thị (`AuctionRow`) và các form, không giữ domain entity hay DAO.
 Không copy các lớp kiểm tra giá/chọn người thắng vào client. Các nút được ẩn theo vai trò
@@ -34,11 +34,10 @@ Không copy các lớp kiểm tra giá/chọn người thắng vào client. Các
 Hai bên cần hiểu cùng một dạng JSON, không cần dùng chung class Java. Mỗi bên giữ Message,
 JsonLines và hằng chuỗi riêng trong package của mình. Mã chỉ gồm envelope và framing; luật
 đấu giá nằm ở server. Đổi wire contract phải cập nhật `protocol.md` và test hai bên, rồi
-chạy test tích hợp. Cách này cho phép chép riêng thư mục client sang máy khác để build.
+chạy test tích hợp. Client chạy độc lập qua TCP/JSON; các module build từ parent POM.
 
-Module `common` cũ đã bỏ. Package domain `com.example.auction.common.model` còn nằm trong
-server để đọc dữ liệu serialization cũ; đổi package ngay sẽ làm các snapshot đã lưu mất
-khả năng đọc. Đây là quyết định tương thích dữ liệu, không phải một thư viện dùng chung.
+Domain nằm trong module `common`, giữ package `com.example.auction.common.model` để đọc
+snapshot serialization cũ. Client không dùng module common trong runtime.
 
 ## OOP và mẫu thiết kế
 

@@ -4,7 +4,7 @@
 
 1. `mvn clean verify`; `python3 scripts/check_coverage.py`.
 2. Chạy `java -Dauction.data=data/demo -jar server/target/server-1.0-SNAPSHOT-all.jar --demo`.
-3. Mở 3 client bằng `mvn -f client/pom.xml javafx:run` từ 3 terminal.
+3. Mở 3 client bằng `bash scripts/client.sh` từ 3 terminal.
 4. Đăng nhập seller, bidder1 và bidder2 với tài khoản trong README.
 
 ## Demo 7–10 phút

@@ -13,21 +13,22 @@ Xem [review repo phụ, nguồn tham khảo và giới hạn còn lại](docs/re
 ## Cấu trúc
 
 ```text
-server/              Ứng dụng server độc lập: domain, service, socket, DAO, test
-client/              Ứng dụng JavaFX độc lập: giao diện, controller, kết nối, test
-integration-tests/   Kiểm thử client và server cùng nhau, báo cáo coverage tổng
+common/              Domain và exception dùng ở phía server
+server/              Ứng dụng server: service, socket, DAO, test
+client/              Ứng dụng JavaFX: giao diện, controller, kết nối, test
 scripts/             Lệnh kiểm tra, demo và xuất tài liệu
 docs/               Giao thức, kiến trúc, kế hoạch tuần, báo cáo
-pom.xml              Gom các project để kiểm tra toàn bộ, không bắt buộc khi chạy riêng
+pom.xml              Parent POM, quản lý ba module Maven
 ```
 
-Hai ứng dụng có POM riêng, **không phụ thuộc POM gốc hoặc artifact của nhau**. Có thể chép
-riêng `client/` hoặc `server/` sang thư mục/máy khác để build. Client không có luật đấu giá,
-entity người dùng có password hash, DAO hoặc file lưu của server. Hai bên chỉ thống nhất
+`common` chứa model/exception, `server` phụ thuộc `common`; `client` không phụ thuộc domain
+hoặc server trong mã chạy. Client chỉ có phụ thuộc `server` ở scope `test` để kiểm thử GUI
+với server thật. Các module build trong reactor từ POM gốc. Client không có luật đấu giá,
+entity người dùng có password hash, DAO hoặc file lưu trong runtime. Hai bên chỉ thống nhất
 [dạng JSON gửi qua Socket](docs/protocol.md).
 
-Phần domain cũ giữ package `com.example.auction.common.model` để đọc snapshot trước đây,
-nhưng source của nó hiện chỉ nằm trong `server/`. Không còn module Maven `common` dùng chung.
+Domain giữ nguyên package `com.example.auction.common.model` để đọc snapshot cũ; nay source
+nằm trong module `common`. Package không đổi nên dữ liệu serialization cũ vẫn tương thích.
 
 ## Chạy trên máy
 
@@ -36,21 +37,21 @@ Cần **JDK 21** (có cả `java` và `javac`) và **Maven 3.8.7+**. Linux chạ
 Tại thư mục gốc repository, mở terminal thứ nhất:
 
 ```bash
-mvn -f server/pom.xml clean verify
+mvn -pl server -am clean package -DskipTests
 java -jar server/target/server-1.0-SNAPSHOT-all.jar --demo
 ```
 
 Giữ server chạy, mở terminal thứ hai cũng ở thư mục gốc:
 
 ```bash
-mvn -f client/pom.xml javafx:run
+bash scripts/client.sh
 ```
 
-Lệnh client tự biên dịch mã client, không cần `mvn install` server trước.
+Client chạy thành tiến trình riêng qua TCP; script Maven chạy từ parent POM.
 Để chạy hai người mua cùng lúc, mở thêm terminal và chạy lại lệnh client.
 Nhập server `127.0.0.1`, cổng `5000` trên màn hình đăng nhập.
 
-Nếu chép từng ứng dụng ra riêng, xem [server/README.md](server/README.md) và
+Chi tiết cách chạy server/client xem [server/README.md](server/README.md) và
 [client/README.md](client/README.md). Các script tiện dụng trên Linux/macOS:
 
 ```bash
@@ -105,21 +106,20 @@ người thắng.
 ## Kiểm tra
 
 ```bash
-mvn clean verify                          # server, client và integration-tests
+mvn clean verify                          # common, server, client và test GUI tích hợp
 python3 scripts/check_architecture.py      # không import/phụ thuộc nhầm ứng dụng
 python3 scripts/check_coverage.py          # coverage tổng >= 60%, gồm cả GUI
-bash scripts/check_independent_builds.sh   # chép riêng từng ứng dụng ra ngoài để build/test
+bash scripts/check_independent_builds.sh   # build server/client theo dependency reactor riêng
 python3 scripts/smoke.py                   # JAR server thật, nhiều socket, restart
 ```
 
 Trong cloud hiện tại, chạy `source scripts/env.sh` trước các lệnh Maven/Python cần Java;
 hoặc `bash scripts/build.sh`. Script không thay toolchain trên máy nếu không có đường dẫn cloud.
 
-Test riêng từng ứng dụng: `mvn -f server/pom.xml clean verify` hoặc
-`mvn -f client/pom.xml clean verify`. Test client riêng dùng socket thử nghiệm.
-Test GUI nói chuyện với server thật ở `integration-tests/`, không nằm trong client.
-Báo cáo tổng ở `integration-tests/target/site/jacoco-aggregate/index.html`;
-ảnh từ test GUI ở `integration-tests/target/screenshots/`.
+Test module server: `mvn -pl server -am clean verify`. Test client và luồng GUI với
+server thật: `mvn -pl client -am clean verify`.
+Coverage tổng được tính bằng `python3 scripts/check_coverage.py` từ ba báo cáo module;
+ảnh test GUI ở `client/target/screenshots/`.
 
 GitHub Actions kiểm tra build độc lập và tích hợp; trạng thái lần chạy thực tế xem ở tab Actions.
 

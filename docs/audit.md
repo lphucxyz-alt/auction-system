@@ -61,8 +61,8 @@ người dùng để làm test qua.
 Test hồi quy: [client transport](../client/src/test/java/com/example/auction/client/ClientConnectionTest.java),
 [Socket/server](../server/src/test/java/com/example/auction/server/SocketIntegrationTest.java),
 [DAO](../server/src/test/java/com/example/auction/server/dao/FileStoreTest.java),
-[domain](../server/src/test/java/com/example/auction/common/model/AuctionRulesTest.java),
-[GUI](../integration-tests/src/test/java/com/example/auction/client/ClientWorkflowTest.java).
+[domain](../common/src/test/java/com/example/auction/common/model/AuctionRulesTest.java),
+[GUI](../client/src/test/java/com/example/auction/client/ClientWorkflowTest.java).
 
 ## Giới hạn còn lại
 

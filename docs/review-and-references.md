@@ -120,7 +120,7 @@ dòng prompt rồi khẳng định đã bảo đảm chất lượng.
 - Dừng server thật để kiểm thông báo kết nối và nút đăng nhập được bật lại.
 - Hai client gửi bid thật, kiểm GUI nhận sự kiện và cập nhật lịch sử; kiểm nút seller khi phiên chạy.
 - Chụp Login, danh sách, đặt giá, cửa sổ nhỏ và form Seller từ JavaFX thật.
-- Smoke JAR thật với restart; chép riêng server/client để build độc lập.
+- Smoke JAR thật với restart; build server/client riêng theo dependency reactor.
 - Phân biệt các bước đã chạy ở máy này với trạng thái CI sau push.
 
 Xem [kết quả bàn giao](requirements.md) và [chi tiết các đợt rà soát](audit.md).

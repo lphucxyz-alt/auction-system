@@ -83,10 +83,8 @@ Test bao gồm lịch sử 105 lượt với phân trang, IO ghi thất bại fa
 và update nháp thiếu dữ liệu. Test client riêng kiểm phản hồi đến sai thứ tự và socket đóng
 giữa chừng, không import server.
 
-`bash scripts/check_independent_builds.sh` PASS: sao chép **chỉ** source/POM của server rồi
-client ra thư mục tạm và chạy clean verify, không có POM gốc hay mã ứng dụng kia.
-`check_architecture.py` PASS: hai POM không có parent/phụ thuộc app nội bộ; JAR server không
-chứa JavaFX/client, JAR client không chứa server/domain/DAO.
+`bash scripts/check_independent_builds.sh` ở lần audit đó chạy trên cấu trúc Maven trước khi
+đổi thành `common/server/client`. Kết quả lịch sử không mô tả cấu trúc hiện tại.
 
 Đã thử server mới với **bản sao** snapshot demo của phiên bản trước: load thành công,
 đăng nhập tài khoản đã có và đọc lại danh sách; không sửa file dữ liệu gốc.
@@ -115,9 +113,9 @@ Thử thêm 24 client đồng thời, 400 bid với peer không đọc, 50 sản
 | D — JavaFX/FXML và mạng client | Đăng ký/đăng nhập, danh sách, chi tiết, đặt giá và lịch sử trực tiếp | Test JavaFX/FXML với server thật, hai bidder, báo lỗi khi mất kết nối |
 | E — Build, test và GUI phụ | Maven, Checkstyle, JaCoCo, workflow GitHub Actions, Seller CRUD và Admin | Build độc lập, test Seller tạo/sửa/xóa qua GUI, test Admin mở danh sách tài khoản |
 
-Gói dùng ba module Maven: `server`, `client`, `integration-tests`. Mô hình và DAO nằm ở
-server. Hai bên giao tiếp JSON theo cùng tài liệu giao thức. Kế hoạch nhóm ban đầu dự kiến
-module `common`; cấu trúc hiện tại đáp ứng yêu cầu Client–Server và tách được hai ứng dụng.
+Gói dùng ba module Maven: `common`, `server`, `client`. Mô hình nằm trong common; DAO và
+service nằm ở server. Hai bên giao tiếp JSON theo cùng tài liệu giao thức. Test GUI tích hợp
+nằm trong test scope của client, không được đóng gói trong ứng dụng chạy.
 
 Tài liệu nhóm yêu cầu biểu đồ lớp tự vẽ ở commit đầu. Commit `d91006b` của repo này chỉ có
 README. Nhóm cần xác nhận cách trình bày hồ sơ sơ đồ gốc, đóng góp và PR theo lịch sử thật.

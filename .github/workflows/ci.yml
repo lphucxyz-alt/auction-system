@@ -1,10 +1,10 @@
-name: Test independent apps and integration
+name: Test auction modules
 on:
   push:
   pull_request:
   workflow_dispatch:
 jobs:
-  standalone:
+  module-builds:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -17,12 +17,9 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Build only the selected application in a separate directory
-        run: |
-          mkdir -p "$RUNNER_TEMP/standalone"
-          cp -R "${{ matrix.app }}" "$RUNNER_TEMP/standalone/${{ matrix.app }}"
-          mvn -B -ntp -f "$RUNNER_TEMP/standalone/${{ matrix.app }}/pom.xml" clean verify
-  integration:
+      - name: Build selected application with required reactor modules
+        run: mvn -B -ntp -pl ${{ matrix.app }} -am clean verify
+  full-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -43,7 +40,6 @@ jobs:
           path: |
             **/target/surefire-reports/
             **/target/site/jacoco/
-            integration-tests/target/site/jacoco-aggregate/
             **/target/checkstyle-result.xml
-            integration-tests/target/screenshots/
+            client/target/screenshots/
             server/target/server-1.0-SNAPSHOT-all.jar
