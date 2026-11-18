@@ -5,46 +5,36 @@ import com.example.auction.common.exception.AuctionException;
 import com.example.auction.common.exception.InvalidBidException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.Serializable;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
 
-/** Aggregate root: state, bid history and proxy bidding share one per-auction lock. */
+/** Aggregate root: state and bid history share one per-auction lock. */
 public class Auction extends Entity {
+  // Keep the identifier used by existing snapshots.
+  private static final long serialVersionUID = -5799514962377660541L;
   public static final long MAX_AMOUNT = 1_000_000_000_000_000L;
   private Item item;
   private final String sellerId;
   private Instant startTime;
   private Instant endTime;
-  private boolean antiSniping;
   private final ReentrantLock lock = new ReentrantLock();
   private transient List<BidListener> listeners = new CopyOnWriteArrayList<>();
   private final List<BidTransaction> history = new ArrayList<>();
-  private final Map<String, AutoBid> autoBids = new HashMap<>();
-  private long registrationSequence;
   private long version;
   private AuctionStatus status = AuctionStatus.OPEN;
   private long currentPrice;
   private String leaderId;
 
-  private record AutoBid(String bidderId, long maxBid, long increment, long sequence)
-      implements Serializable {}
-
   public Auction(Item item, String sellerId, Instant endTime) {
-    this(item, sellerId, Instant.now(), endTime, false);
+    this(item, sellerId, Instant.now(), endTime);
   }
 
   /** Creates an instance with the supplied validated auction details. */
-  public Auction(
-      Item item, String sellerId, Instant startTime, Instant endTime, boolean antiSniping) {
+  public Auction(Item item, String sellerId, Instant startTime, Instant endTime) {
     if (item == null
         || sellerId == null
         || sellerId.isBlank()
@@ -57,7 +47,6 @@ public class Auction extends Entity {
     this.sellerId = sellerId;
     this.startTime = startTime;
     this.endTime = endTime;
-    this.antiSniping = antiSniping;
     currentPrice = item.getStartingPrice();
   }
 
@@ -108,7 +97,7 @@ public class Auction extends Entity {
   }
 
   /** Replaces draft details; active and completed auctions cannot be edited. */
-  public void update(Item replacement, Instant start, Instant end, boolean anti) {
+  public void update(Item replacement, Instant start, Instant end) {
     lock.lock();
     try {
       if (status != AuctionStatus.OPEN) {
@@ -120,7 +109,6 @@ public class Auction extends Entity {
       item = replacement;
       startTime = start;
       endTime = end;
-      antiSniping = anti;
       currentPrice = replacement.getStartingPrice();
       version++;
     } finally {
@@ -128,63 +116,25 @@ public class Auction extends Entity {
     }
   }
 
-  /**
-   * Accepts a strictly increasing bid, resolves auto-bids and notifies observers after unlocking.
-   */
+  /** Accepts one bid and notifies observers after releasing the lock. */
   public BidTransaction placeBid(String bidderId, long amount, Instant now) {
-    List<BidTransaction> accepted = new ArrayList<>();
+    BidTransaction bid;
     lock.lock();
     try {
       requireRunning(bidderId, now);
       if (amount <= currentPrice || amount > MAX_AMOUNT) {
         throw new InvalidBidException("Giá phải lớn hơn " + currentPrice + " và ≤ " + MAX_AMOUNT);
       }
-      accept(bidderId, amount, now, accepted);
-      resolveAutoBids(now, accepted);
-    } finally {
-      lock.unlock();
-    }
-    notifyListeners(accepted);
-    return accepted.getFirst();
-  }
-
-  /** Registers a private maximum and increment, resolving competing caps deterministically. */
-  public void configureAutoBid(String bidderId, long maxBid, long increment, Instant now) {
-    List<BidTransaction> accepted = new ArrayList<>();
-    lock.lock();
-    try {
-      requireRunning(bidderId, now);
-      if (maxBid <= currentPrice
-          || maxBid > MAX_AMOUNT
-          || increment <= 0
-          || increment > MAX_AMOUNT) {
-        throw new InvalidBidException("Trần phải cao hơn giá hiện tại, bước giá phải > 0");
-      }
-      AutoBid previous = autoBids.get(bidderId);
-      autoBids.put(
-          bidderId,
-          new AutoBid(
-              bidderId,
-              maxBid,
-              increment,
-              previous == null ? registrationSequence++ : previous.sequence()));
-      version++;
-      resolveAutoBids(now, accepted);
-    } finally {
-      lock.unlock();
-    }
-    notifyListeners(accepted);
-  }
-
-  /** Removes only this bidder's automatic bidding rule. */
-  public void removeAutoBid(String bidderId) {
-    lock.lock();
-    try {
-      autoBids.remove(bidderId);
+      bid = new BidTransaction(bidderId, amount, now);
+      currentPrice = amount;
+      leaderId = bidderId;
+      history.add(bid);
       version++;
     } finally {
       lock.unlock();
     }
+    notifyListeners(bid);
+    return bid;
   }
 
   private void requireRunning(String bidderId, Instant now) {
@@ -196,60 +146,12 @@ public class Auction extends Entity {
     }
   }
 
-  /** So sánh các trần bằng hàng đợi ưu tiên, không lặp từng bước giá đến hết trần. */
-  private void resolveAutoBids(Instant now, List<BidTransaction> accepted) {
-    PriorityQueue<AutoBid> queue =
-        new PriorityQueue<>(
-            Comparator.comparingLong(AutoBid::maxBid)
-                .reversed()
-                .thenComparingLong(AutoBid::sequence));
-    for (AutoBid bid : autoBids.values()) {
-      if (bid.maxBid() >= currentPrice) {
-        queue.add(bid);
-      }
-    }
-    if (leaderId != null
-        && (!autoBids.containsKey(leaderId) || autoBids.get(leaderId).maxBid() < currentPrice)) {
-      queue.add(new AutoBid(leaderId, currentPrice, 1, Long.MIN_VALUE));
-    }
-    AutoBid winner = queue.poll();
-    if (winner == null) {
-      return;
-    }
-    AutoBid runner = queue.poll();
-    // Mỗi số tiền ≤ 10^15, nên cộng hai số tiền vẫn nằm trong phạm vi long.
-    long price = currentPrice;
-    if (runner != null) {
-      price = Math.min(winner.maxBid(), runner.maxBid() + winner.increment());
-    }
-    if (!winner.bidderId().equals(leaderId)) {
-      price = Math.max(price, Math.min(winner.maxBid(), currentPrice + winner.increment()));
-    }
-    if (price > currentPrice && price <= winner.maxBid()) {
-      accept(winner.bidderId(), price, now, accepted);
-    }
-  }
-
-  private void accept(String bidderId, long amount, Instant now, List<BidTransaction> accepted) {
-    currentPrice = amount;
-    leaderId = bidderId;
-    BidTransaction bid = new BidTransaction(bidderId, amount, now);
-    history.add(bid);
-    accepted.add(bid);
-    if (antiSniping && Duration.between(now, endTime).compareTo(Duration.ofSeconds(10)) <= 0) {
-      endTime = now.plusSeconds(30);
-    }
-    version++;
-  }
-
-  private void notifyListeners(List<BidTransaction> accepted) {
-    for (BidTransaction bid : accepted) {
-      for (BidListener listener : listeners) {
-        try {
-          listener.onNewBid(getId(), bid);
-        } catch (RuntimeException ignored) {
-          /* One observer must not reject a committed bid. */
-        }
+  private void notifyListeners(BidTransaction bid) {
+    for (BidListener listener : listeners) {
+      try {
+        listener.onNewBid(getId(), bid);
+      } catch (RuntimeException ignored) {
+        /* One observer must not reject a committed bid. */
       }
     }
   }
@@ -319,16 +221,6 @@ public class Auction extends Entity {
     lock.lock();
     try {
       return version;
-    } finally {
-      lock.unlock();
-    }
-  }
-
-  /** Returns whether last-second bids extend the auction deadline. */
-  public boolean isAntiSniping() {
-    lock.lock();
-    try {
-      return antiSniping;
     } finally {
       lock.unlock();
     }

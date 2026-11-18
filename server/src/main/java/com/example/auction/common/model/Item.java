@@ -14,8 +14,8 @@ public abstract class Item extends Entity {
         || description.length() > 4000) {
       throw new IllegalArgumentException("Tên/mô tả sản phẩm không hợp lệ");
     }
-    if (startingPrice <= 0 || startingPrice > 1_000_000_000_000_000L) {
-      throw new IllegalArgumentException("Giá khởi điểm phải > 0");
+    if (startingPrice <= 0 || startingPrice >= Auction.MAX_AMOUNT) {
+      throw new IllegalArgumentException("Giá khởi điểm phải > 0 và < " + Auction.MAX_AMOUNT);
     }
     this.name = name;
     this.description = description;

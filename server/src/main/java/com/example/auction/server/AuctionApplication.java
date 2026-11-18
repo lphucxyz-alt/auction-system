@@ -15,6 +15,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -120,8 +121,7 @@ public final class AuctionApplication {
               item,
               seller.getId(),
               Instant.now().plusSeconds(300),
-              Instant.now().plusSeconds(900),
-              true);
+              Instant.now().plusSeconds(900));
       auctions.put(a.getId(), a);
       attach(a);
     }
@@ -180,7 +180,7 @@ public final class AuctionApplication {
       role(user, "SELLER", "ADMIN");
       Instant start = Instant.now().plusSeconds(number(p, "startDelaySeconds", 0, 604800));
       Instant end = start.plusSeconds(number(p, "durationSeconds", 1, 604800));
-      Auction a = new Auction(item(p), user.getId(), start, end, bool(p, "antiSniping"));
+      Auction a = new Auction(item(p), user.getId(), start, end);
       auctions.put(a.getId(), a);
       attach(a);
       changed("AUCTION_UPDATED", a);
@@ -209,12 +209,18 @@ public final class AuctionApplication {
       case "UPDATE_AUCTION" -> {
         writable();
         owner(user, a);
-        Instant start = Instant.now().plusSeconds(number(p, "startDelaySeconds", 0, 604800));
-        a.update(
-            item(p),
-            start,
-            start.plusSeconds(number(p, "durationSeconds", 1, 604800)),
-            bool(p, "antiSniping"));
+        if (p.has("version") && number(p, "version", 0, Long.MAX_VALUE) != a.getVersion()) {
+          fail("CONFLICT", "Phiên vừa thay đổi. Mở lại form để xem thông tin mới nhất.");
+        }
+        Instant start =
+            p.has("startDelaySeconds")
+                ? Instant.now().plusSeconds(number(p, "startDelaySeconds", 0, 604800))
+                : a.getStartTime();
+        Duration duration =
+            p.has("durationSeconds")
+                ? Duration.ofSeconds(number(p, "durationSeconds", 1, 604800))
+                : Duration.between(a.getStartTime(), a.getEndTime());
+        a.update(item(p), start, start.plus(duration));
       }
       case "DELETE_AUCTION" -> {
         writable();
@@ -238,6 +244,9 @@ public final class AuctionApplication {
       case "CANCEL_AUCTION" -> {
         writable();
         owner(user, a);
+        if (a.getLeaderId() != null && !user.getRole().equals("ADMIN")) {
+          fail("FORBIDDEN", "Chỉ quản trị viên có thể hủy phiên đã có người đặt giá");
+        }
         a.changeStatus(AuctionStatus.CANCELED);
       }
       case "PAY_AUCTION" -> {
@@ -251,24 +260,8 @@ public final class AuctionApplication {
         writable();
         role(user, "BIDDER");
         a.placeBid(user.getId(), number(p, "amount", 1, Auction.MAX_AMOUNT), Instant.now());
-        changed("NEW_BID", a);
+        changed("AUCTION_UPDATED", a);
         return envelope(a);
-      }
-      case "AUTO_BID" -> {
-        writable();
-        role(user, "BIDDER");
-        a.configureAutoBid(
-            user.getId(),
-            number(p, "maxBid", 1, Auction.MAX_AMOUNT),
-            number(p, "increment", 1, Auction.MAX_AMOUNT),
-            Instant.now());
-        changed("NEW_BID", a);
-        return envelope(a);
-      }
-      case "REMOVE_AUTO_BID" -> {
-        writable();
-        role(user, "BIDDER");
-        a.removeAutoBid(user.getId());
       }
       default -> throw new ApiException("BAD_REQUEST", "Loại yêu cầu không được hỗ trợ");
     }
@@ -283,13 +276,15 @@ public final class AuctionApplication {
     }
     Instant now = Instant.now();
     for (Auction a : auctions.values()) {
-      if (a.getStatus() == AuctionStatus.OPEN && !now.isBefore(a.getStartTime())) {
+      boolean justStarted = a.getStatus() == AuctionStatus.OPEN && !now.isBefore(a.getStartTime());
+      if (justStarted) {
         a.changeStatus(AuctionStatus.RUNNING);
-        changed("AUCTION_UPDATED", a);
       }
       if (a.getStatus() == AuctionStatus.RUNNING && !now.isBefore(a.getEndTime())) {
         a.changeStatus(AuctionStatus.FINISHED);
         changed("AUCTION_FINISHED", a);
+      } else if (justStarted) {
+        changed("AUCTION_UPDATED", a);
       }
     }
   }
@@ -299,7 +294,7 @@ public final class AuctionApplication {
         ItemType.valueOf(text(p, "category")),
         text(p, "name"),
         text(p, "description"),
-        number(p, "startingPrice", 1, Auction.MAX_AMOUNT),
+        number(p, "startingPrice", 1, Auction.MAX_AMOUNT - 1),
         text(p, "extra1"),
         (int) number(p, "extra2", 0, 10_000_000));
   }
@@ -363,7 +358,7 @@ public final class AuctionApplication {
     return out;
   }
 
-  /** Builds a public, versioned auction snapshot without private auto-bid caps. */
+  /** Builds a public, versioned auction snapshot. */
   public synchronized JsonObject view(Auction a) {
     JsonObject out = new JsonObject();
     out.addProperty("id", a.getId());
@@ -399,7 +394,6 @@ public final class AuctionApplication {
     }
     out.addProperty("startTime", a.getStartTime().toString());
     out.addProperty("endTime", a.getEndTime().toString());
-    out.addProperty("antiSniping", a.isAntiSniping());
     JsonArray history = new JsonArray();
     List<BidTransaction> allBids = a.getHistory();
     out.addProperty("historyCount", allBids.size());
@@ -446,17 +440,6 @@ public final class AuctionApplication {
     } catch (ArithmeticException | NumberFormatException ex) {
       throw new ApiException("BAD_REQUEST", "Số ngoài phạm vi: " + key);
     }
-  }
-
-  private static boolean bool(JsonObject p, String key) {
-    JsonElement e = p.get(key);
-    if (e == null) {
-      return false;
-    }
-    if (!e.isJsonPrimitive() || !e.getAsJsonPrimitive().isBoolean()) {
-      throw new ApiException("BAD_REQUEST", "Cần boolean: " + key);
-    }
-    return e.getAsBoolean();
   }
 
   private static void fail(String code, String message) {

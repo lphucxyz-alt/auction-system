@@ -3,7 +3,7 @@
 Bài tập lớn Lập trình nâng cao, dùng Java 21, JavaFX/FXML, Socket JSON và Maven.
 Người bán tạo phiên, người mua đặt giá, server cập nhật các client và tự đóng phiên khi hết giờ.
 
-**Bắt đầu trên máy cá nhân:** [Hướng dẫn 5–6 terminal, tài khoản và Scene Builder](docs/local-demo.md).
+**Bắt đầu trên máy cá nhân:** [Hướng dẫn terminal, tài khoản và Scene Builder](docs/local-demo.md).
 Xem [review repo phụ, nguồn tham khảo và giới hạn còn lại](docs/review-and-references.md).
 
 ![Đăng nhập và tài khoản demo](docs/images/login.png)
@@ -90,18 +90,17 @@ của server. Username 2–32 ký tự chữ/số/`_`, mật khẩu 6–128 ký 
 ## Cách sử dụng
 
 1. Seller tạo sản phẩm: tên, mô tả, nhóm sản phẩm, giá khởi điểm, lịch mở và thời lượng.
-2. Chỉ sửa/xóa khi còn nháp; bấm **Bắt đầu** để mở ngay hoặc đợi lịch server tự mở.
+2. Sửa sản phẩm khi còn nháp. Bấm **Bắt đầu** để mở ngay hoặc đợi server mở theo lịch.
 3. Hai bidder chọn cùng phiên, đặt số nguyên VND lớn hơn giá hiện tại.
-4. Giá, người dẫn đầu, lịch sử và biểu đồ cập nhật qua sự kiện từ server.
+4. Giá, người dẫn đầu và lịch sử cập nhật qua sự kiện từ server.
 5. Hết giờ, người dẫn đầu là người thắng. Người thắng có thể xác nhận **thanh toán mô phỏng**.
 
-Auto-bid nhận trần và bước giá; cùng trần thì người đăng ký sớm hơn được ưu tiên.
-Anti-sniping kéo thời gian còn lại lên 30 giây nếu có bid trong 10 giây cuối.
-Tắt anti-sniping khi cần demo phiên đóng nhanh. Số tiền tối đa là 10^15 VND.
+Mỗi lượt đặt giá giữ nguyên lịch kết thúc của phiên. Giá đặt tối đa là 10^15 VND. Giá khởi điểm phải thấp hơn mức này.
 
-Admin xem danh sách tài khoản và quản lý phiên của mọi người bán. Phiên đã có bid được
-hủy nhưng vẫn giữ lịch sử; không xóa lịch sử để thay kết quả. Không có bid thì không có
-người thắng và không được xác nhận PAID.
+Admin xem danh sách tài khoản và quản lý phiên của mọi người bán. Khi phiên đã có giá,
+chỉ Admin có quyền hủy trước khi thanh toán. Phiên hủy giữ nguyên lịch sử. Seller có thể
+xóa nháp hoặc phiên hủy chưa có giá. Phiên hết hạn chưa có giá sẽ kết thúc mà không có
+người thắng.
 
 ## Kiểm tra
 
@@ -144,7 +143,7 @@ rồi xóa snapshot của người dùng. GUI hiển thị 100 lượt gần nh�
 ## Phân công và tài liệu
 
 - [Tuần nào làm file nào, phần code nào?](docs/weekly-files.md)
-- [Kế hoạch tuần 6–15 cho bốn mảng](docs/weekly.md)
+- [Kế hoạch tuần 6–15 cho năm vai A–E](docs/weekly.md)
 - [Các thay đổi thực tế và nhánh](docs/development-log.md)
 - [Kiến trúc và thuật toán](docs/architecture.md)
 - [Giao thức Socket](docs/protocol.md)

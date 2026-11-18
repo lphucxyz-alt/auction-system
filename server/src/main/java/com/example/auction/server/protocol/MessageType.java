@@ -18,4 +18,5 @@ public final class MessageType {
   // Server -> Client (sự kiện đẩy xuống)
   public static final String NEW_BID = "NEW_BID";
   public static final String AUCTION_FINISHED = "AUCTION_FINISHED";
+  public static final String KICKED_OUT = "KICKED_OUT";
 }

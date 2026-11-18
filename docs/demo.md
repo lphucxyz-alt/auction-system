@@ -11,19 +11,16 @@
 
 1. **Tài khoản:** đăng ký bidder mới, thử mật khẩu sai để thấy lỗi từ server.
 2. **CRUD:** seller tạo phiên Camera với giá khởi điểm 1000, mở sau 300s, thời lượng 60s,
-   tắt anti-sniping trong demo đóng nhanh. Sửa tên/mô tả trước khi mở. Tạo nháp khác rồi xóa.
+   sửa tên hoặc mô tả và kiểm tra lịch mở được giữ. Tạo một nháp khác rồi xóa.
 3. **Bắt đầu:** chọn phiên, seller bấm Bắt đầu. Hai bidder chọn cùng phiên.
-4. **Realtime:** bidder1 đặt 1100, cả hai màn hình đổi giá, lịch sử và biểu đồ cập nhật.
+4. **Realtime:** bidder1 đặt 1100, cả hai màn hình đổi giá, lịch sử cập nhật.
    bidder2 đặt 1200. Thử 1100: bị từ chối, giá không lùi.
-5. **Auto-bid:** bidder1 đặt trần 2000 bước 100, bidder2 đặt thủ công 1500. Server tự trả
-   thay bidder1 nhưng không vượt 2000. Bidder2 đặt 2100 để thắng trần auto.
-6. **Kết thúc:** đợi đủ thời lượng; mọi subscriber thấy kết quả. Bid mới bị từ chối.
+5. **Kết thúc:** đợi đủ thời lượng; mọi subscriber thấy kết quả. Bid mới bị từ chối.
    Người thắng xác nhận thanh toán mô phỏng → PAID; tài khoản khác không có quyền.
-7. **Lưu trữ:** dừng server bằng Ctrl+C, các client báo mất kết nối. Mở lại cùng kho,
+6. **Lưu trữ:** dừng server bằng Ctrl+C, các client báo mất kết nối. Mở lại cùng kho,
    đăng xuất/đăng nhập lại, xác minh lịch sử, người thắng và PAID vẫn giữ nguyên.
-8. **Anti-sniping riêng:** tạo phiên 20s bật anti-sniping, đặt bid khi còn ≤10s. Đồng hồ
-   tăng còn khoảng 30s. Nếu demo đóng nhanh, dùng một phiên khác có tắt tính năng này.
-9. **Admin:** đăng nhập admin; xem tài khoản, quản lý/hủy phiên người bán khác.
+7. **Admin:** đăng nhập admin, xem tài khoản và thử hủy một phiên chưa thanh toán đã có giá.
+   Kiểm tra lịch sử giá vẫn hiển thị sau khi hủy.
 
 Kịch bản tự động tương đương chạy `python3 scripts/smoke.py` trên JAR thật với kho tạm.
 Không xóa dữ liệu demo cũ để “làm đẹp” kết quả mà chưa sao lưu nếu cần giữ lại.
@@ -33,11 +30,10 @@ Không xóa dữ liệu demo cũ để “làm đẹp” kết quả mà chưa s
 - Vì sao currentPrice, leader và history phải được đổi trong cùng khóa?
 - Tại sao phải kiểm tra endTime trong placeBid, không chỉ dùng scheduler?
 - Vì sao listener chạy ngoài khóa; hàng đợi socket ngăn client chậm ảnh hưởng người khác?
-- Observer, Factory, Singleton nằm ở đâu? Singleton holder khác một biến global thế nào?
+- Observer, Factory, Singleton nằm ở đâu? Singleton khởi động và đóng server ở đâu?
 - Tại sao không trả User trực tiếp qua Gson? Password hash có salt bảo vệ điều gì?
 - requestId phân biệt RESULT với NEW_BID như thế nào? version ngăn snapshot cũ thế nào?
 - Tại sao không gọi socket.readLine trên JavaFX Application Thread?
-- Auto-bid giải quyết trần bằng PriorityQueue ra sao? Khi cùng trần ai được ưu tiên?
 - Quyền được server suy ra từ đâu; vì sao ẩn nút trên GUI chưa đủ để bảo vệ?
 - File tạm + atomic move bảo vệ dữ liệu thế nào; mất mạng sau ghi có nghĩa gì?
 - PAID là mô phỏng, chưa chứng minh thanh toán thực ngoài hệ thống.
@@ -49,4 +45,4 @@ Không xóa dữ liệu demo cũ để “làm đẹp” kết quả mà chưa s
 - `release version 21 not supported`: kiểm tra cả `java -version`, `javac -version`, `mvn -version` và JAVA_HOME.
 - GUI không mở trên server headless: dùng máy có desktop; test Monocle chỉ dành cho CI.
 - Không thấy tài khoản demo: `--demo` chỉ seed kho trống. Dùng kho demo riêng hoặc tài khoản đã có.
-- Phiên không đóng: kiểm tra anti-sniping và endTime mới; tắt anti ở phiên demo đóng nhanh.
+- Phiên không đóng: kiểm tra giờ kết thúc và trạng thái phiên do server trả về.

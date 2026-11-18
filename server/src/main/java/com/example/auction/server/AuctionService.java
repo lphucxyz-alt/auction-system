@@ -48,9 +48,7 @@ public class AuctionService {
     }
   }
 
-  /**
-   * Accepts a strictly increasing bid, resolves auto-bids and notifies observers after unlocking.
-   */
+  /** Places a bid using the server clock. */
   public BidTransaction placeBid(String auctionId, String bidderId, long amount) {
     Auction auction = auctions.get(auctionId);
     if (auction == null) {

@@ -1,6 +1,6 @@
 package com.example.auction.common.model;
 
-/** Factory: gom logic "new" vào một chỗ. Thêm loại Item mới chỉ sửa ở đây. */
+/** Gọi factory method của loại sản phẩm được chọn. */
 public final class ItemFactory {
   private ItemFactory() {}
 
@@ -15,10 +15,6 @@ public final class ItemFactory {
       long startingPrice,
       String extra1,
       int extra2) {
-    return switch (type) {
-      case ELECTRONICS -> new Electronics(name, description, startingPrice, extra1, extra2);
-      case ART -> new Art(name, description, startingPrice, extra1, extra2);
-      case VEHICLE -> new Vehicle(name, description, startingPrice, extra1, extra2);
-    };
+    return type.createItem(name, description, startingPrice, extra1, extra2);
   }
 }

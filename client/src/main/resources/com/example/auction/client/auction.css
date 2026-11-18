@@ -121,12 +121,6 @@
 .tab-pane .tab:selected { -fx-background-color: -auction-soft; }
 .tab-pane .tab-label { -fx-text-fill: -auction-muted; -fx-font-size: 10px; -fx-font-weight: bold; }
 .tab-pane .tab:selected .tab-label { -fx-text-fill: -auction-accent; }
-.chart { -fx-padding: 10 0 0 0; }
-.chart-series-line { -fx-stroke: -auction-accent; -fx-stroke-width: 2.5; }
-.chart-line-symbol { -fx-background-color: -auction-accent, white; -fx-background-radius: 6; -fx-padding: 4; }
-.chart-plot-background { -fx-background-color: -auction-surface; }
-.chart-vertical-grid-lines { -fx-stroke: transparent; }
-.chart-horizontal-grid-lines { -fx-stroke: #edf0f5; }
 .axis { -fx-tick-label-fill: -auction-muted; -fx-font-size: 10px; }
 .titled-pane > .title { -fx-background-color: #f4f6fb; -fx-background-radius: 8; -fx-padding: 10 12; }
 .titled-pane > .title > .text { -fx-fill: -auction-ink; }

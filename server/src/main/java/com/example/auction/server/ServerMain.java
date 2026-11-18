@@ -1,7 +1,6 @@
 package com.example.auction.server;
 
-import com.example.auction.server.dao.FileStore;
-import com.example.auction.server.network.AuctionServer;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
@@ -14,35 +13,28 @@ public final class ServerMain {
   public static void main(String[] args) throws Exception {
     String host = System.getProperty("auction.host", "127.0.0.1");
     int port = Integer.parseInt(System.getProperty("auction.port", "5000"));
-    FileStore store = new FileStore(Path.of(System.getProperty("auction.data", "data")));
-    try {
-      AuctionApplication app = new AuctionApplication(store);
-      if (Arrays.asList(args).contains("--demo")) {
-        app.seedDemo();
-      }
-      String adminName = System.getenv("AUCTION_ADMIN_USER");
-      String adminPassword = System.getenv("AUCTION_ADMIN_PASSWORD");
-      if (adminName != null && adminPassword != null) {
-        app.bootstrap(adminName, adminPassword);
-      }
-      AuctionServer server = new AuctionServer(app, host, port);
+    Path directory = Path.of(System.getProperty("auction.data", "data"));
+    try (AuctionManager manager = AuctionManager.getInstance()) {
+      int boundPort =
+          manager.start(
+              directory,
+              host,
+              port,
+              Arrays.asList(args).contains("--demo"),
+              System.getenv("AUCTION_ADMIN_USER"),
+              System.getenv("AUCTION_ADMIN_PASSWORD"));
       Runtime.getRuntime()
           .addShutdownHook(
               new Thread(
                   () -> {
                     try {
-                      server.close();
-                      store.close();
-                    } catch (Exception e) {
+                      manager.close();
+                    } catch (IOException e) {
                       System.err.println(e.getMessage());
                     }
                   }));
-      server.start();
-      System.out.println("Auction server ready on " + host + ":" + server.getPort());
+      System.out.println("Auction server ready on " + host + ":" + boundPort);
       new CountDownLatch(1).await();
-    } catch (Exception e) {
-      store.close();
-      throw e;
     }
   }
 }

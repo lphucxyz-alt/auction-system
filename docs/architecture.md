@@ -10,7 +10,8 @@ flowchart LR
     C <--> N[AuctionConnection + client.protocol]
   end
   subgraph Server[server — build độc lập]
-    S[Socket + server.protocol] --> A[AuctionApplication]
+    G[AuctionManager Singleton] --> S[Socket + server.protocol]
+    S --> A[AuctionApplication]
     A --> D[Domain + UserService]
     A --> DAO[FileStore]
     DAO --> F[(File dữ liệu)]
@@ -56,24 +57,28 @@ classDiagram
   Auction o-- BidTransaction
   Auction --> BidListener : Observer
   ItemFactory --> Item : tạo theo loại
-  AuctionManager o-- Item : Singleton demo
+  AuctionManager --> AuctionServer : quản lý vòng đời
 ```
 
 Entity cấp UUID. User/Item là lớp trừu tượng, các lớp con override getRole/getCategory/
-printInfo. Dữ liệu đóng gói; lịch sử trả bản sao bất biến. ItemFactory tạo sản phẩm theo
-loại. AuctionManager dùng holder để minh họa Singleton trong Demo. BidListener nối
-Observer của domain với sự kiện giá ở tầng ứng dụng.
+printInfo. Dữ liệu đóng gói và lịch sử trả bản sao bất biến. Mỗi hằng ItemType override
+phương thức createItem để tạo đúng lớp con. ItemFactory gọi phương thức đó khi Seller tạo
+sản phẩm. ServerMain dùng AuctionManager Singleton để mở kho dữ liệu, khởi động Socket
+và đóng tài nguyên. BidListener nối Observer của domain với sự kiện giá ở tầng ứng dụng.
 
 ## Trạng thái và xử lý đồng thời
 
 `OPEN → RUNNING → FINISHED → PAID/CANCELED`; OPEN/RUNNING cũng có thể bị hủy.
-Không có người thắng thì không được PAID. Seller chỉ sửa/xóa nháp, Admin có quyền với mọi phiên.
+Chỉ người thắng được xác nhận PAID. Seller sửa nháp và xóa phiên nháp hoặc phiên hủy
+chưa có giá. Phiên đã có giá chỉ Admin được hủy trước khi thanh toán.
 
 Mỗi Auction dùng ReentrantLock. Kiểm trạng thái, thời gian, số tiền và ghi giá/leader/history
 trong cùng khóa. Kiểm deadline ngay trong placeBid để không nhận bid trễ dù scheduler chưa
 kịp chạy. Observer được gọi sau khi nhả khóa; một observer lỗi không làm mất bid đã ghi.
 
-AuctionApplication sắp thứ tự command, lưu snapshot và phát event bằng synchronized.
+AuctionServer dùng monitor của AuctionApplication để sắp thứ tự lệnh và thay đổi session.
+AuctionApplication lưu snapshot trước khi phát sự kiện. Hai đăng nhập cùng tài khoản có một
+session hoạt động sau khi xử lý cả hai yêu cầu.
 Ghi file toàn bộ phù hợp dữ liệu nhỏ của BTL, nhưng làm giảm throughput khi nhiều phiên
 cùng ghi. Không tuyên bố hệ thống hiện tại phục vụ tải thương mại lớn.
 
@@ -85,20 +90,9 @@ history cũng kiểm version, không chỉ snapshot phiên. Phân trang dùng af
 dịch offset khi có xóa. Khóa socket writer tách khỏi khóa close, nên mất mạng không chặn
 GUI lúc đóng; callback mất mạng được lưu lại nếu nó xảy ra trước khi controller đăng ký.
 
-## Auto-bid và anti-sniping
-
-PriorityQueue sắp rule theo trần giảm dần, cùng trần thì thứ tự đăng ký tăng dần. Hai rule
-đầu quyết định người dẫn và giá đủ vượt đối thủ, bị chặn tại trần người thắng. Nếu leader
-không có rule còn hiệu lực thì thêm giá họ đã thực đặt như một ứng viên. Không cần lặp từng
-bước giá đến trần; mã dùng các phép so sánh và cộng số nguyên thông thường. Mỗi giá trị
-được giới hạn 10^15 nên tổng hai giá trị vẫn an toàn với long.
-
-Bid trong 10 giây cuối đặt endTime thành now +30 giây. Thao tác này cùng khóa với giá.
-Clock luôn đọc endTime mới, nên thời gian gia hạn không bị một timer cũ bỏ qua.
-
 ## Lưu trữ và lỗi
 
-FileStore serialize tài khoản có hash mật khẩu, phiên và history/rule auto vào file cục bộ.
+FileStore serialize tài khoản có hash mật khẩu, phiên và lịch sử giá vào file cục bộ.
 Listener transient được gắn lại khi load. Không dùng ObjectInputStream cho dữ liệu socket.
 Object filter giới hạn kiểu/độ sâu/chiều dài mảng; file tạm được fsync rồi move nguyên tử, process lock
 ngăn hai server ghi cùng thư mục. Ghi lỗi làm service ngừng nhận lệnh đến khi restart;

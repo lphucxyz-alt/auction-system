@@ -14,9 +14,8 @@ Chỉ server thay đổi dữ liệu nghiệp vụ; client hiển thị snapshot
 ## 3. OOP và patterns
 
 Entity → User/Item/Auction; User → Bidder/Seller/Admin; Item → Electronics/Art/Vehicle.
-Encapsulation, abstraction, inheritance, polymorphism. Factory tạo Item, Observer phát bid,
-Singleton holder trong AuctionManager dùng cho demo, không quản lý phiên của server thật.
-ItemFactory hiện là Simple Factory. Chiếu sơ đồ ở architecture.md và giải thích giới hạn.
+Đóng gói, trừu tượng, kế thừa, đa hình. Mỗi ItemType override Factory Method để tạo Item.
+AuctionManager là Singleton khởi động và đóng server. Observer phát giá đã được lưu.
 
 ## 4. Đồng thời
 
@@ -24,10 +23,10 @@ ReentrantLock từng phiên; giá, leader, history ghi cùng transaction domain.
 Facade tuần tự hóa persist + event. Bid đến endTime bị từ chối ngay cả khi clock chạy trễ.
 Notify ngoài khóa; mỗi socket có hàng đợi riêng.
 
-## 5. Tính năng nâng cao
+## 5. Kết quả phiên đấu giá
 
-PriorityQueue giải quyết trần auto-bid theo max và thứ tự đăng ký.
-Anti-sniping dùng endTime động. LineChart cập nhật từ sự kiện server.
+Server tự đóng phiên theo lịch. Người đặt giá cao nhất được xác nhận thanh toán mô phỏng.
+Nếu phiên chưa có giá, hệ thống kết thúc phiên và hiển thị kết quả không có người thắng.
 
 ## 6. Lưu dữ liệu và bảo vệ tài khoản
 
@@ -42,8 +41,7 @@ Checkstyle Google, JaCoCo và GitHub Actions. Dùng số liệu mới nhất tro
 hoặc báo cáo target; không đọc số lượng test cũ khi đã thay đổi code.
 Chạy kịch bản trong demo.md.
 
-## 8. Giới hạn và hướng phát triển
+## 8. Phân công bàn giao
 
-Snapshot file ghi đồng bộ phù hợp BTL, chưa tối ưu throughput nhiều phiên.
-Hướng tiếp theo: JDBC transaction, TLS, idempotency xuyên restart,
-triển khai desktop installers và thanh toán qua nhà cung cấp thực khi có yêu cầu.
+A trình bày mô hình và mẫu thiết kế. B giải thích khóa, giá và hạn đóng. C trình bày Socket
+và lưu dữ liệu. D thao tác JavaFX. E trình bày Maven, CI, kiểm thử và quản lý Seller/Admin.

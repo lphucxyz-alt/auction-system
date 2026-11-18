@@ -1,8 +1,9 @@
 package com.example.auction.client;
 
 import com.google.gson.JsonObject;
+import java.time.Duration;
+import java.time.Instant;
 import javafx.fxml.FXML;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
@@ -19,8 +20,9 @@ public final class SellerController {
   @FXML private TextField duration;
   @FXML private TextArea description;
   @FXML private ComboBox<String> category;
-  @FXML private CheckBox anti;
   @FXML private Label error;
+  private Long originalDelay;
+  private Long originalDuration;
 
   @FXML
   private void initialize() {
@@ -71,20 +73,12 @@ public final class SellerController {
     category.setValue(row.text("category"));
     extra1.setText(row.text("extra1"));
     extra2.setText(row.text("extra2"));
-    delay.setText(
-        Long.toString(
-            Math.max(
-                0,
-                java.time.Duration.between(
-                        java.time.Instant.now(), java.time.Instant.parse(row.text("startTime")))
-                    .getSeconds())));
-    duration.setText(
-        Long.toString(
-            java.time.Duration.between(
-                    java.time.Instant.parse(row.text("startTime")),
-                    java.time.Instant.parse(row.text("endTime")))
-                .getSeconds()));
-    anti.setSelected(row.json().get("antiSniping").getAsBoolean());
+    Instant start = Instant.parse(row.text("startTime"));
+    Instant end = Instant.parse(row.text("endTime"));
+    originalDelay = Math.max(0, Duration.between(Instant.now(), start).toSeconds());
+    delay.setText(originalDelay.toString());
+    originalDuration = Duration.between(start, end).toSeconds();
+    duration.setText(originalDuration.toString());
   }
 
   /** Validates form fields and creates the seller command payload. */
@@ -99,11 +93,16 @@ public final class SellerController {
     p.addProperty("description", description.getText());
     p.addProperty("category", category.getValue());
     p.addProperty("extra1", extra1.getText().trim());
-    p.addProperty("startingPrice", number(startingPrice, 1, 1_000_000_000_000_000L));
+    p.addProperty("startingPrice", number(startingPrice, 1, 999_999_999_999_999L));
     p.addProperty("extra2", number(extra2, 0, 10_000_000));
-    p.addProperty("startDelaySeconds", number(delay, 0, 604800));
-    p.addProperty("durationSeconds", number(duration, 1, 604800));
-    p.addProperty("antiSniping", anti.isSelected());
+    long delaySeconds = number(delay, 0, 604800);
+    if (originalDelay == null || delaySeconds != originalDelay) {
+      p.addProperty("startDelaySeconds", delaySeconds);
+    }
+    long durationSeconds = number(duration, 1, 604800);
+    if (originalDuration == null || durationSeconds != originalDuration) {
+      p.addProperty("durationSeconds", durationSeconds);
+    }
     return p;
   }
 

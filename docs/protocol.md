@@ -4,34 +4,32 @@ UTF-8, một JSON object mỗi dòng (tối đa 64 KiB), TCP mặc định `127.
 Envelope: `{"type":"LOGIN","requestId":"uuid","payload":{"username":"…","password":"…"}}`.
 Server trả `RESULT` / `ERROR` cùng requestId. `ERROR.payload` chứa `code`, `message`.
 Mọi request sau đăng nhập dùng danh tính của socket, không tin `userId` do client gửi.
-Không trả passwordHash, maxBid của người khác hoặc Java serialized object trên mạng.
+Socket truyền dữ liệu JSON công khai. Hash mật khẩu và Java serialized object nằm ở server.
 
 | Yêu cầu | Payload | Quyền / kết quả |
 |---|---|---|
 | REGISTER | username, password, role BIDDER/SELLER | Công khai; trả user (không đăng nhập tự động) |
-| LOGIN | username, password | Trả user, gắn session; chỉ một danh tính/socket |
+| LOGIN | username, password | Trả user, gắn session. Đăng nhập thành công từ socket mới sẽ thay phiên cũ của cùng tài khoản. |
 | LOGOUT | {} | Xóa session, subscriptions |
 | LIST_AUCTIONS | afterId (cursor, khuyến nghị), hoặc offset (mặc định 0) | Tối đa 50 auctions theo id tăng dần, nextAfterId (null nếu hết), nextOffset, total |
 | GET_HISTORY | auctionId, offset (mặc định 0) | Đăng nhập; 100 lượt/trang, nextOffset, total |
 | GET_AUCTION | auctionId | Đăng nhập; trả auction, 100 lượt history gần nhất |
 | SUBSCRIBE | auctionId | Đăng nhập; nhận snapshot + sự kiện |
 | UNSUBSCRIBE | auctionId | Xóa theo dõi |
-| CREATE_AUCTION | name, description, category ELECTRONICS/ART/VEHICLE, startingPrice (số nguyên VND), extra1, extra2, startDelaySeconds, durationSeconds, antiSniping | Seller/Admin; trả auction |
-| UPDATE_AUCTION | auctionId và cùng trường CREATE | Chủ sở hữu/Admin, chỉ OPEN chưa bắt đầu |
+| CREATE_AUCTION | name, description, category ELECTRONICS/ART/VEHICLE, startingPrice (số nguyên VND, từ 1 đến 10^15 − 1), extra1, extra2, startDelaySeconds, durationSeconds | Seller/Admin; trả auction |
+| UPDATE_AUCTION | auctionId và thông tin sản phẩm. startDelaySeconds/durationSeconds tùy chọn, thiếu trường nào thì giữ lịch tương ứng. version là phiên bản khi mở biểu mẫu. | Chủ sở hữu/Admin, chỉ OPEN. version cũ trả CONFLICT nếu được gửi. |
 | DELETE_AUCTION | auctionId | Chủ sở hữu/Admin, chỉ OPEN/CANCELED chưa có bid |
 | START_AUCTION | auctionId | Chủ sở hữu/Admin; bắt đầu ngay, giữ độ dài phiên |
-| CANCEL_AUCTION | auctionId | Chủ sở hữu/Admin; OPEN/RUNNING/FINISHED |
+| CANCEL_AUCTION | auctionId | OPEN/RUNNING/FINISHED. Chủ sở hữu chỉ hủy được khi chưa có bid. Admin có thể hủy cả phiên đã có bid. |
 | PLACE_BID | auctionId, amount | Bidder, số nguyên dương > giá hiện tại |
-| AUTO_BID | auctionId, maxBid, increment | Bidder; tối đa 10^15 VND, ưu tiên đăng ký sớm khi cùng trần |
-| REMOVE_AUTO_BID | auctionId | Bidder; bỏ cấu hình auto-bid của mình |
 | PAY_AUCTION | auctionId | Người thắng FINISHED; thanh toán mô phỏng → PAID |
 | LIST_USERS | {} | Admin; chỉ id, username, role |
 
+Sự kiện `KICKED_OUT` có message khi socket bị thay phiên. Socket cũ mất quyền thực hiện lệnh.
 Sự kiện đẩy không có requestId: `AUCTION_UPDATED` cho danh sách; `NEW_BID`,
 `AUCTION_FINISHED` cho subscriber. Payload chứa `auction` snapshot có `version` tăng dần.
 Client bỏ snapshot cũ, cập nhật JavaFX qua Platform.runLater; không polling mạng.
 Thời gian là ISO-8601 UTC từ server; client hiển thị múi giờ máy người dùng.
-Anti-sniping: bid trong 10 giây cuối kéo endTime tới ít nhất now + 30 giây.
 Snapshot gồm lịch sử bid gần nhất và winnerId khi FINISHED/PAID. Phản hồi SUBSCRIBE là snapshot
 cùng cơ chế version, tránh mất cập nhật giữa GET và SUBSCRIBE.
 Yêu cầu tối đa 64 KiB; phản hồi tối đa 4 MiB. Snapshot chứa 100 lượt gần nhất và

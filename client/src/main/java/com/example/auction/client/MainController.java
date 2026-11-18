@@ -22,12 +22,11 @@ import java.util.function.Consumer;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
-import javafx.scene.chart.LineChart;
-import javafx.scene.chart.XYChart;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
@@ -54,11 +53,9 @@ public final class MainController {
   @FXML private TableView<JsonObject> history;
   @FXML private TableColumn<JsonObject, String> bidderColumn;
   @FXML private TableColumn<JsonObject, String> bidAmountColumn;
-  @FXML private TableColumn<JsonObject, String> timeColumn;
+  @FXML private TableColumn<JsonObject, Instant> timeColumn;
   @FXML private TextField search;
   @FXML private TextField amount;
-  @FXML private TextField maxBid;
-  @FXML private TextField increment;
   @FXML private ComboBox<String> statusFilter;
   @FXML private CheckBox mine;
   @FXML private Label identity;
@@ -74,13 +71,13 @@ public final class MainController {
   @FXML private Button usersButton;
   @FXML private Button payButton;
   @FXML private Button bidButton;
+  @FXML private Button fullHistoryButton;
   @FXML private Button editButton;
   @FXML private Button startButton;
   @FXML private Button cancelButton;
   @FXML private Button deleteButton;
   @FXML private VBox bidControls;
   @FXML private HBox sellerControls;
-  @FXML private LineChart<String, Number> chart;
   private final Map<String, AuctionRow> rows = new LinkedHashMap<>();
   private final Set<String> deleted = new HashSet<>();
   private final ExecutorService requests =
@@ -98,7 +95,7 @@ public final class MainController {
   private boolean disposed;
   private Timeline clock;
   private static final DateTimeFormatter TIME =
-      DateTimeFormatter.ofPattern("dd/MM HH:mm:ss").withZone(ZoneId.systemDefault());
+      DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss").withZone(ZoneId.systemDefault());
 
   @FXML
   private void initialize() {
@@ -115,9 +112,8 @@ public final class MainController {
     bidAmountColumn.setCellValueFactory(
         c -> new ReadOnlyStringWrapper(money(c.getValue().get("amount").getAsLong())));
     timeColumn.setCellValueFactory(
-        c ->
-            new ReadOnlyStringWrapper(
-                TIME.format(Instant.parse(c.getValue().get("time").getAsString()))));
+        c -> new ReadOnlyObjectWrapper<>(Instant.parse(c.getValue().get("time").getAsString())));
+    timeColumn.setCellFactory(column -> timeCell());
     statusFilter.getItems().setAll("Tất cả", "OPEN", "RUNNING", "FINISHED", "PAID", "CANCELED");
     statusFilter.setValue("Tất cả");
     statusFilter.setConverter(
@@ -154,6 +150,16 @@ public final class MainController {
             });
     clock = new Timeline(new KeyFrame(Duration.seconds(1), e -> updateTiming()));
     clock.setCycleCount(Timeline.INDEFINITE);
+  }
+
+  private TableCell<JsonObject, Instant> timeCell() {
+    return new TableCell<>() {
+      @Override
+      protected void updateItem(Instant time, boolean empty) {
+        super.updateItem(time, empty);
+        setText(empty || time == null ? null : TIME.format(time));
+      }
+    };
   }
 
   private TableCell<AuctionRow, String> statusCell() {
@@ -264,6 +270,7 @@ public final class MainController {
           } else {
             Collections.reverse(bids);
             history.getItems().setAll(bids);
+            history.sort();
             feedback.setText(
                 "Đã tải " + bids.size() + " lượt. Realtime hiển thị 100 lượt gần nhất.");
           }
@@ -272,6 +279,18 @@ public final class MainController {
 
   private void event(Message event) {
     if (disposed) {
+      return;
+    }
+    if (event.getType().equals("KICKED_OUT")) {
+      String reason = "Tài khoản vừa được đăng nhập từ một thiết bị/terminal khác.";
+      if (event.getPayload() != null && event.getPayload().has("message")) {
+        reason = event.getPayload().get("message").getAsString();
+      }
+      try {
+        app.showLogin(reason);
+      } catch (Exception e) {
+        feedback.setText(reason);
+      }
       return;
     }
     JsonObject a = event.getPayload().getAsJsonObject("auction");
@@ -290,8 +309,13 @@ public final class MainController {
       return;
     }
     accept(event.getPayload());
-    if (event.getType().equals("AUCTION_FINISHED")) {
-      feedback.setText("Phiên đã kết thúc. Xem người thắng trong chi tiết.");
+    if (event.getType().equals("AUCTION_FINISHED")
+        && selected != null
+        && selected.id().equals(a.get("id").getAsString())) {
+      feedback.setText(
+          selected.text("winnerId").isEmpty()
+              ? "Phiên đã kết thúc mà không có người đặt giá."
+              : "Phiên đã kết thúc. Xem người thắng trong chi tiết.");
     }
   }
 
@@ -368,6 +392,7 @@ public final class MainController {
             && (user.get("role").getAsString().equals("ADMIN")
                 || selected.text("sellerId").equals(user.get("id").getAsString()));
     visible(sellerControls, owner);
+    fullHistoryButton.setDisable(!present || selected.json().get("historyCount").getAsInt() == 0);
     visible(
         payButton,
         present
@@ -381,7 +406,6 @@ public final class MainController {
       leader.setText("");
       timing.setText("");
       history.getItems().clear();
-      chart.getData().clear();
       return;
     }
     category.setText(categoryName(selected.text("category")) + " / " + status(selected.status()));
@@ -394,37 +418,26 @@ public final class MainController {
             + selected.text("seller"));
     price.setText(money(selected.price()) + " VND");
     String leading = selected.text("leader");
-    leader.setText(
-        leading.isEmpty()
-            ? "Chưa có người đặt giá"
-            : (selected.status().equals("FINISHED") || selected.status().equals("PAID")
-                    ? "Người thắng: "
-                    : "Đang dẫn đầu: ")
-                + leading);
+    String leaderText = switch (selected.status()) {
+      case "FINISHED", "PAID" -> "Người thắng: " + leading;
+      case "CANCELED" -> "Đặt giá cao nhất trước khi hủy: " + leading;
+      default -> "Đang dẫn đầu: " + leading;
+    };
+    leader.setText(leading.isEmpty() ? "Chưa có người đặt giá" : leaderText);
     bidControls.setDisable(!selected.status().equals("RUNNING"));
     boolean draft = selected.status().equals("OPEN");
     editButton.setDisable(!draft);
     startButton.setDisable(!draft);
-    deleteButton.setDisable(!draft);
+    deleteButton.setDisable(!draft && !(selected.status().equals("CANCELED") && leading.isEmpty()));
     cancelButton.setDisable(
-        !draft && !selected.status().equals("RUNNING") && !selected.status().equals("FINISHED"));
+        selected.status().equals("PAID")
+            || selected.status().equals("CANCELED")
+            || (!leading.isEmpty() && !user.get("role").getAsString().equals("ADMIN")));
     List<JsonObject> bids = new ArrayList<>();
     selected.json().getAsJsonArray("history").forEach(b -> bids.add(b.getAsJsonObject()));
-    List<JsonObject> reversed = new ArrayList<>(bids);
-    Collections.reverse(reversed);
-    history.getItems().setAll(reversed);
+    Collections.reverse(bids);
+    history.getItems().setAll(bids);
     history.sort();
-    XYChart.Series<String, Number> series = new XYChart.Series<>();
-    int index = 0;
-    for (JsonObject bid : bids) {
-      series
-          .getData()
-          .add(
-              new XYChart.Data<>(
-                  ++index + " · " + TIME.format(Instant.parse(bid.get("time").getAsString())),
-                  bid.get("amount").getAsLong()));
-    }
-    chart.getData().setAll(List.of(series));
     updateTiming();
   }
 
@@ -433,7 +446,8 @@ public final class MainController {
       return;
     }
     Instant end = Instant.parse(selected.text("endTime"));
-    long seconds = Math.max(0, java.time.Duration.between(Instant.now(), end).getSeconds());
+    var remaining = java.time.Duration.between(Instant.now(), end);
+    long seconds = Math.max(0, remaining.toSeconds() + (remaining.getNano() > 0 ? 1 : 0));
     timing.setText(
         "Bắt đầu "
             + TIME.format(Instant.parse(selected.text("startTime")))
@@ -441,8 +455,7 @@ public final class MainController {
             + TIME.format(end)
             + (selected.status().equals("RUNNING")
                 ? "\nCòn " + seconds / 60 + " phút " + seconds % 60 + " giây"
-                : "\n" + status(selected.status()))
-            + (selected.json().get("antiSniping").getAsBoolean() ? " • Anti-sniping bật" : ""));
+                : "\n" + status(selected.status())));
   }
 
   @FXML
@@ -463,36 +476,8 @@ public final class MainController {
         result -> {
           accept(result);
           amount.clear();
-          feedback.setText(
-              "Giá đã được server chấp nhận. Auto-bid có thể trả giá cao hơn ngay sau đó.");
+          feedback.setText("Giá đã được server chấp nhận.");
         });
-  }
-
-  @FXML
-  private void autoBid() {
-    if (selected == null) {
-      return;
-    }
-    JsonObject p = id(selected.id());
-    try {
-      p.addProperty("maxBid", Long.parseLong(maxBid.getText().trim()));
-      p.addProperty("increment", Long.parseLong(increment.getText().trim()));
-    } catch (NumberFormatException e) {
-      feedback.setText("Trần và bước giá phải là số nguyên dương.");
-      return;
-    }
-    request(
-        "AUTO_BID",
-        p,
-        result -> {
-          accept(result);
-          feedback.setText("Đã bật auto-bid; trần được giữ riêng tại server.");
-        });
-  }
-
-  @FXML
-  private void removeAuto() {
-    command("REMOVE_AUTO_BID", "Đã tắt auto-bid.");
   }
 
   @FXML
@@ -520,7 +505,7 @@ public final class MainController {
       return;
     }
     String deletingId = selected.id();
-    if (!confirm("Xóa phiên nháp đã chọn?")) {
+    if (!confirm("Xóa phiên đã chọn?")) {
       return;
     }
     request(
@@ -535,7 +520,7 @@ public final class MainController {
           }
           renderList();
           detail();
-          feedback.setText("Đã xóa nháp.");
+          feedback.setText("Đã xóa phiên.");
         });
   }
 
@@ -599,6 +584,7 @@ public final class MainController {
               payload -> {
                 if (row != null) {
                   payload.addProperty("auctionId", row.id());
+                  payload.addProperty("version", row.version());
                 }
                 request(
                     row == null ? "CREATE_AUCTION" : "UPDATE_AUCTION",

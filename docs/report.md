@@ -4,19 +4,21 @@
 
 Xây dựng hệ thống Client–Server Java đáp ứng các chức năng của đề BTL LTNC 2026:
 quản lý tài khoản theo vai trò, quản lý sản phẩm, đặt giá hợp lệ, realtime và kết thúc phiên.
-Giao diện dùng JavaFX/FXML, xử lý lỗi kết nối và dữ liệu. Ba phần nâng cao được triển khai:
-auto-bid, anti-sniping và biểu đồ giá. Kế hoạch phân công bốn mảng công việc nằm ở `weekly.md`, phần thực hiện có bằng chứng
+Giao diện dùng JavaFX/FXML và xử lý lỗi kết nối, dữ liệu. Phạm vi theo các yêu cầu bắt buộc
+trong Hướng dẫn BTL LTNC-2026. Kế hoạch phân công năm vai công việc nằm ở `weekly.md`, phần thực hiện có bằng chứng
 riêng trong nhật ký thay đổi.
 
 ## 2. Phân tích nghiệp vụ
 
 Người dùng đăng ký BIDDER/SELLER và đăng nhập trước khi truy cập phiên. Seller lập một
-phiên nháp với sản phẩm và thời gian, có thể cập nhật hoặc xóa khi chưa có bid. Server tự
+phiên nháp với sản phẩm và thời gian, có thể sửa nháp và xóa phiên chưa có giá khi còn
+nháp hoặc đã hủy. Server tự
 chuyển OPEN sang RUNNING theo lịch; seller cũng có thể mở ngay. Bidder gửi số tiền nguyên
 lớn hơn giá hiện tại. Server kiểm tra vai trò, thời gian, giá, ghi người dẫn đầu và thông báo.
 Khi hết hạn server chuyển FINISHED; người dẫn đầu là người thắng duy nhất. Nếu không có
 bid, không có người thắng và không được PAID. Thanh toán trong phạm vi BTL là xác nhận
-mô phỏng, chỉ người thắng có quyền. Admin giám sát tài khoản và quản lý các phiên.
+mô phỏng, chỉ người thắng có quyền. Admin giám sát tài khoản và quản lý các phiên. Khi
+phiên đã có giá, chỉ Admin được hủy trước khi thanh toán.
 
 ## 3. Thiết kế
 
@@ -26,6 +28,10 @@ view model và kết nối riêng. Cả hai có POM độc lập, không import 
 với server thật nằm trong `integration-tests`; nó không trở thành dependency của client.
 Mỗi trách nhiệm nằm ở một tầng, không dùng dữ liệu mock trong màn hình vận hành.
 
+AuctionManager Singleton sở hữu vòng đời quy trình server. Mỗi ItemType override một
+factory method để tạo đúng loại sản phẩm. Observer chuyển giá đã chấp nhận từ domain
+qua Socket tới bảng giá trên JavaFX.
+
 ## 4. Thuật toán và tính đúng
 
 Điều kiện chấp nhận bid: đang RUNNING, startTime ≤ now < endTime, bidder hợp lệ, amount >
@@ -33,10 +39,9 @@ currentPrice và amount ≤10^15. Các điều kiện được kiểm tra khi gi
 người dẫn đầu và lịch sử diễn ra trước khi nhả khóa. Do đó history tăng nghiêm ngặt, không
 rollback và không có hai người dẫn đầu cho cùng một snapshot.
 
-Auto-bid không thực hiện hàng triệu bước nhỏ. PriorityQueue xếp các trần giảm dần, hòa
-trần theo thứ tự đăng ký. Giá phản hồi đủ vượt đối thủ nhưng bị chặn tại trần người thắng.
-Mỗi lần accept tạo giao dịch thật trong history. Anti-sniping cập nhật endTime trong cùng
-khóa với giá, đồng thời clock đọc endTime mới thay vì dựa vào một timer cũ.
+Mỗi lượt giá hợp lệ tạo một giao dịch và giữ nguyên hạn đóng phiên. Server lưu thay
+đổi trước khi phát cập nhật tới client. Bảng lịch sử trên GUI dùng dữ liệu từ sự kiện
+của server.
 
 ## 5. Lưu trữ và độ tin cậy
 
@@ -52,8 +57,8 @@ quả, nên GUI không tự retry các mutation.
 
 ## 6. Kiểm thử
 
-JUnit bao gồm domain, cạnh tranh 100 luồng lặp 100 lần, auto-bid hòa trần/giới hạn/tắt rule,
-anti-sniping, observer lỗi, lifecycle và giá ở đúng deadline. Test socket tạo server ở cổng
+JUnit kiểm thử mô hình phiên, cạnh tranh 100 luồng lặp 100 lần, lỗi observer, vòng đời
+và giá ở đúng hạn. Test socket tạo server ở cổng
 ngẫu nhiên và kho tạm, kiểm tra phân quyền, dữ liệu sai, nhiều bidder, sự kiện và khôi phục.
 Test JavaFX tải FXML thật, đăng nhập qua Socket, bấm bid và nhận cập nhật từ client thứ hai.
 Smoke script chạy file JAR ở tiến trình riêng rồi restart để xác minh gói chạy.
@@ -74,18 +79,15 @@ hiểu code và trình bày. File snapshot ghi đồng bộ là lựa chọn đ�
 lớn. TCP không mã hóa nên demo ở localhost hoặc mạng tin cậy. Thanh toán thật, database
 server, triển khai Internet và installers không thuộc bản triển khai hiện tại.
 
-## 8. Cập nhật giao diện và review ngày 15/11/2026
+## 8. Giao diện và đánh giá thiết kế
 
 Giao diện dùng CSS tập trung với bảng màu chỉnh ở đầu file; FXML mở được để thiết kế
 bằng Scene Builder. Login có hướng dẫn server/tài khoản demo và đăng ký. Nút thao tác
 được bật/tắt theo trạng thái, lỗi kết nối giải thích bước cần kiểm tra.
 
-Build sạch trên máy Linux/JDK 21 có 152 lượt test không lỗi, Checkstyle 0 vi phạm;
-coverage dòng gộp 1418/1735 (81,7%). Smoke JAR chạy 5 kết nối client và kiểm restart;
-GUI được render bằng Monocle, gồm scene 1000×700. Đây không phải thử tải 5 tiến trình GUI.
-Số liệu và phạm vi lưu riêng ở [ui-validation.json](ui-validation.json).
+Smoke JAR kiểm năm kết nối và khởi động lại server. Test tích hợp render JavaFX bằng
+Monocle, gồm cửa sổ 1000×700. Kết quả hiện tại nằm ở [requirements.md](requirements.md).
 
-Review còn chỉ ra Singleton AuctionManager chủ yếu phục vụ demo và ItemFactory hiện
-là Simple Factory, không phải Factory Method GoF theo nghĩa chặt. Không suy ra đã đạt
-đủ điểm pattern từ tên lớp. Xem [review-and-references.md](review-and-references.md)
-và [hướng dẫn chạy nhiều terminal](local-demo.md).
+Bảng đối chiếu kỹ thuật theo năm vai A–E nằm ở [requirements.md](requirements.md).
+Trách nhiệm về sơ đồ lớp gốc, đóng góp, review PR và vấn đáp thuộc về nhóm. Xem thêm
+[hướng dẫn chạy nhiều terminal](local-demo.md).

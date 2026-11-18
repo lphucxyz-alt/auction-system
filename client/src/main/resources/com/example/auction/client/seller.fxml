@@ -35,6 +35,5 @@
       <TextField fx:id="duration" promptText="Thời lượng"/>
     </VBox>
   </HBox>
-  <CheckBox fx:id="anti" text="Gia hạn khi có giá mới trong 10 giây cuối (còn 30 giây)" wrapText="true"/>
   <Label fx:id="error" wrapText="true" styleClass="feedback,error"/>
 </VBox>

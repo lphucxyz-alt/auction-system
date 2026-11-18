@@ -43,10 +43,23 @@ public final class LoginController {
     host.setText(System.getProperty("auction.host", "127.0.0.1"));
     port.setText(System.getProperty("auction.port", "5000"));
     username.setText(System.getProperty("auction.username", ""));
+    username
+        .textProperty()
+        .addListener(
+            (obs, oldVal, newVal) -> {
+              if (app != null) {
+                app.updateTitle(newVal == null ? "" : newVal.trim(), null);
+              }
+            });
   }
 
+  /** Configures the authentication controller with the application instance. */
   public void configure(App app) {
     this.app = app;
+    String current = username.getText();
+    if (current != null && !current.isBlank()) {
+      app.updateTitle(current.trim(), null);
+    }
   }
 
   @FXML
@@ -76,7 +89,8 @@ public final class LoginController {
     login.requestFocus();
   }
 
-  private void feedback(String message, boolean error) {
+  /** Displays a status or error message on the authentication panel. */
+  public void feedback(String message, boolean error) {
     feedback.getStyleClass().removeAll("error", "success");
     feedback.getStyleClass().add(error ? "error" : "success");
     feedback.setText(message);
@@ -96,8 +110,24 @@ public final class LoginController {
       feedback("Cổng cần là số từ 1 đến 65535.", true);
       return;
     }
-    if (address.isEmpty() || user.isEmpty() || pass.isEmpty()) {
-      feedback("Nhập địa chỉ server, tên đăng nhập và mật khẩu.", true);
+    if (address.isEmpty()) {
+      feedback("Vui lòng nhập địa chỉ server.", true);
+      return;
+    }
+    if (user.isEmpty() && pass.isEmpty()) {
+      feedback("Vui lòng nhập tên đăng nhập và mật khẩu.", true);
+      return;
+    }
+    if (user.isEmpty()) {
+      feedback("Vui lòng nhập tên đăng nhập.", true);
+      return;
+    }
+    if (pass.isEmpty()) {
+      feedback("Vui lòng nhập mật khẩu.", true);
+      return;
+    }
+    if (create && pass.length() < 6) {
+      feedback("Mật khẩu đăng ký cần ít nhất 6 ký tự.", true);
       return;
     }
     JsonObject payload = new JsonObject();

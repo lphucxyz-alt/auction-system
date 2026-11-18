@@ -7,7 +7,7 @@ commit `8d5d670`. Không coi kết quả của repo phụ là kết quả của 
 ## Nhận xét
 
 Repo phụ có nền chức năng tốt hơn vẻ ngoài: đăng nhập qua Socket thật, server kiểm
-quyền, lưu snapshot, lịch sử/version, nhiều client và ba tính năng nâng cao. Điểm yếu
+quyền, lưu snapshot, lịch sử/version và nhiều client. Điểm yếu
 trước sửa là người mới khó tự chạy và giao diện chưa hướng dẫn luồng sử dụng.
 
 Đánh giá giao diện trước sửa khoảng **4,5–5/10** theo cảm nhận về bố cục, phân cấp chữ,
@@ -27,16 +27,12 @@ viên hay một phép đo khách quan. Cần người dùng xem ảnh và chạy
 Chi tiết thao tác: [local-demo.md](local-demo.md). Ảnh từ chạy JavaFX thật nằm ở
 `docs/images/`; không dùng ảnh dựng để chứng minh chức năng.
 
-## Điểm còn cần làm rõ trước khi dùng làm bài nộp
+## Thiết kế và phạm vi bản hiện tại
 
-1. **Singleton chưa nằm trong luồng ứng dụng chính.** `AuctionManager` là Singleton
-   quản lý Item dùng ở `Demo`; `AuctionApplication` mới quản lý phiên của server thật.
-   Không nói Singleton này đang vận hành toàn bộ phiên. Nếu thang chấm yêu cầu pattern
-   được dùng trong luồng chính, nhóm cần thiết kế tiếp và giải thích lựa chọn.
-2. **Simple Factory khác Factory Method.** `ItemFactory.create` là static switch tạo
-   sản phẩm, không có creator subclass override factory method. Có dùng factory,
-   nhưng không nên gọi đó là Factory Method GoF mà không giải thích khác biệt.
-   Không thêm nhiều lớp chỉ để làm đẹp danh sách pattern trong đợt sửa UI.
+1. **Singleton.** `ServerMain` gọi `AuctionManager` để mở kho và chạy Socket. Cùng một
+   tiến trình chỉ có một server hoạt động do manager này quản lý.
+2. **Factory Method.** Mỗi hằng của `ItemType` override `createItem`. `ItemFactory` gọi
+   phương thức của loại đã chọn trong luồng tạo và sửa sản phẩm.
 3. **Có khóa ở hai tầng.** Auction có ReentrantLock theo phiên; `AuctionApplication`
    lại tuần tự hóa command, persist và event bằng monitor chung. Đủ đơn giản cho BTL
    nhỏ; không chứng minh các phiên ghi dữ liệu chạy song song hay chịu tải Internet.
@@ -44,9 +40,8 @@ Chi tiết thao tác: [local-demo.md](local-demo.md). Ảnh từ chạy JavaFX t
    khoản đầy đủ; không mô tả là quản trị thương mại hoàn chỉnh.
 5. **Lưu file thay database cần đối chiếu yêu cầu lớp.** Hướng dẫn tuần có serialization;
    đề nhắc DAO/Database. Kế hoạch cũng ghi cần xác nhận cách lưu với giảng viên.
-6. **Tài liệu có khác biệt cần giữ đúng nguồn.** Đề ghi nhóm 3–4 người; kế hoạch lịch
-   sử chia 5 vai; repo phụ có kế hoạch 4 mảng. Hướng dẫn chung ghi trình bày tuần 15,
-   kế hoạch ghi tuần 14. Không tự biến những giả định này thành quy định đã xác nhận.
+6. **Số lượng vai và lịch trình.** Đề ghi nhóm 3–4 người. Kế hoạch phân công có năm vai
+   kỹ thuật A–E. Hướng dẫn chung ghi trình bày tuần 15, kế hoạch dự kiến tuần 14.
 7. **Giới hạn kỹ thuật còn nguyên:** TCP chưa TLS, PAID mô phỏng, ghi toàn snapshot,
    chưa có idempotency xuyên restart. Kiểm thử đạt không có nghĩa không còn lỗi.
 
@@ -69,12 +64,12 @@ controller hoặc merge cả repo phụ để bỏ qua công việc tích hợp 
 
 ## Tài liệu bài tập đã đối chiếu
 
-Các PDF gốc nằm trên máy, không được sao chép lên GitHub public trong đợt này:
+Tài liệu gốc được đọc từ bản lưu trên máy.
 
 | Tài liệu | Nội dung dùng để review |
 |---|---|
 | `Videos/BTL/2026-BTL (1).pdf` và bản đề trong `Documents/Doc/Lập trình nâng cao/Bài tập lớn/` | Chức năng, OOP, network/MVC, pattern và bảng chấm |
-| `Videos/BTL/Hướng dẫn BTL LTNC-2026.pdf` | Lộ trình 6–15, GUI/FXML, Socket, serialization, coverage ≥60% |
+| `Hướng dẫn BTL LTNC-2026.pdf` | Phạm vi bắt buộc, lộ trình 6–15, GUI/FXML, Socket, serialization, coverage ≥60% |
 | `Videos/BTL/Kế hoạch dự án Hệ thống đấu giá trực tuyến (nhóm 5 người).pdf` | Mốc MVP, demo nhiều client, quy trình và các giả định cần xác nhận |
 | `Videos/BTL/Phân công chi tiết 5 vai trò A-B-C-D-E theo từng tuần (Tuần 6 - Tuần 14).pdf` | Trách nhiệm theo vai, tiêu chí kiểm thử và bàn giao |
 | `Videos/BTL/Báo cáo rà soát code Hệ thống đấu giá trực tuyến (Tuần 6–7).pdf` | Lỗi lịch sử, nguyên nhân, hạn chế của lần kiểm tra cũ |
@@ -123,10 +118,9 @@ dòng prompt rồi khẳng định đã bảo đảm chất lượng.
 - Build sạch, Checkstyle và test của cả hệ thống; đo coverage từ báo cáo mới.
 - Test nút demo chỉ điền, không bỏ qua đăng nhập; đăng ký qua server thật rồi đăng nhập.
 - Dừng server thật để kiểm thông báo kết nối và nút đăng nhập được bật lại.
-- Hai client gửi bid thật, kiểm GUI/lịch sử/biểu đồ nhận sự kiện; kiểm nút seller khi phiên chạy.
-- Chụp Login, danh sách/đặt giá, biểu đồ, cửa sổ nhỏ và form Seller từ JavaFX thật.
+- Hai client gửi bid thật, kiểm GUI nhận sự kiện và cập nhật lịch sử; kiểm nút seller khi phiên chạy.
+- Chụp Login, danh sách, đặt giá, cửa sổ nhỏ và form Seller từ JavaFX thật.
 - Smoke JAR thật với restart; chép riêng server/client để build độc lập.
 - Phân biệt các bước đã chạy ở máy này với trạng thái CI sau push.
 
-Kết quả mới nhất: [ui-validation.json](ui-validation.json). Số liệu trong
-`validation.json`/`audit.md` là của lần audit trước; không tự gắn lại cho code mới.
+Xem [kết quả bàn giao](requirements.md) và [chi tiết các đợt rà soát](audit.md).

@@ -1,9 +1,10 @@
-# Chạy trên máy cá nhân với 5–6 terminal
+# Chạy hệ thống đấu giá từ terminal
 
-Máy được kiểm tra: Linux, JDK 21, Maven 3.8.7. Thư mục đang sửa là
-`/home/phuc-quang/IdeaProjects/auction-system`. Một bản clone cũ ở
-`/home/phuc-quang/auction-system` có FXML/CSS chưa commit; bản đó được giữ nguyên.
-Hãy chạy tất cả lệnh từ cùng một bản clone để tránh nhìn giao diện cũ.
+Cần JDK 21 và Maven 3.8.7 trở lên. Máy Linux chạy JavaFX cần phiên desktop.
+Nếu dùng gói bàn giao, giải nén rồi mở terminal tại thư mục `auction-system` chứa `pom.xml`.
+Bản đang làm trên máy này ở `~/IdeaProjects/auction-system`. Dùng cùng một thư mục trong
+mọi terminal. Demo luồng đặt giá cần một server, một seller và hai bidder. Mở thêm client
+admin để kiểm phần quản trị.
 
 ## Chuẩn bị một lần
 
@@ -15,12 +16,12 @@ mvn -version
 mvn -B -ntp clean verify
 ```
 
-Giữ nguyên source và không chạy `clean` trong lúc các client đang hoạt động.
+Chạy `clean verify` trước khi mở các client.
 Mỗi lệnh client dưới đây tạo một tiến trình JavaFX/cửa sổ riêng; terminal cần giữ mở.
 
 ## Từng terminal
 
-Mỗi terminal trước tiên chạy `cd ~/IdeaProjects/auction-system`.
+Mỗi terminal mở tại thư mục dự án. Với bản clone trên máy này, chạy `cd ~/IdeaProjects/auction-system`.
 
 | Terminal | Lệnh | Sau khi mở GUI |
 |---|---|---|
@@ -56,10 +57,10 @@ Các lệnh trên chạy server/client của repo phụ, không dùng server rep
 ## Demo nhanh khoảng 3 phút
 
 1. Seller bấm **+ Tạo phiên**. Tên: `Camera demo`; giá khởi điểm `1000`;
-   mở sau `300` giây; thời lượng `90` giây; bỏ chọn gia hạn. Lưu.
+   mở sau `300` giây; thời lượng `90` giây. Lưu.
 2. Seller chọn Camera vừa tạo, bấm **Bắt đầu**. Trạng thái chuyển **Đang đấu**.
 3. Hai bidder chọn cùng Camera. Bidder1 nhập `1100` rồi **Đặt giá**;
-   bidder2 nhập `1200`. Hai bên thấy giá/lịch sử/biểu đồ cập nhật mà không bấm tải lại.
+   bidder2 nhập `1200`. Hai bên thấy giá và lịch sử cập nhật mà không bấm tải lại.
 4. Thử `1100` lần nữa: server từ chối, giá không lùi.
 5. Chờ hết giờ; người đặt `1200` thắng nếu không có ai đặt cao hơn. Chỉ người thắng
    có nút xác nhận thanh toán mô phỏng.
@@ -67,7 +68,7 @@ Các lệnh trên chạy server/client của repo phụ, không dùng server rep
    Ctrl+C ở terminal 1. Mở lại cùng kho để kiểm tra kết quả đã lưu.
 
 Ba phiên mẫu ban đầu có thể đã hết hạn ở lần demo trước. Khi đó tạo phiên mới;
-không xóa kho chỉ để có lại phiên đang chạy. Auto-bid và gia hạn xem [demo.md](demo.md).
+không xóa kho chỉ để có lại phiên đang chạy. Xem kịch bản [demo.md](demo.md) để thử các trạng thái của phiên.
 
 ## Khi không đăng nhập được
 
@@ -78,7 +79,7 @@ không xóa kho chỉ để có lại phiên đang chạy. Auto-bid và gia hạ
 - **Address already in use:** dừng server cũ ở terminal của nó, hoặc đổi cổng cả hai bên.
   Không tắt ngẫu nhiên các tiến trình Java khác trên máy.
 - **Kho đang được dùng:** một thư mục dữ liệu chỉ cho một server; dừng server cũ trước.
-- **Giao diện vẫn cũ:** kiểm `pwd` là bản trong `IdeaProjects`, đóng client rồi chạy lại.
+- **Giao diện vẫn cũ:** chạy `pwd` để xác nhận bạn đang ở đúng bản đã sửa hoặc bản giải nén.
 - **Bấm Enter:** đăng nhập bằng nút mặc định; đăng ký thành công cần nhập lại mật khẩu.
 - **Không thấy giá thay đổi:** các bidder phải chọn cùng một phiên đang ở trạng thái
   Đang đấu; số nhập không có dấu chấm/phẩy, phải lớn hơn giá hiện tại.
@@ -89,7 +90,7 @@ File chỉnh giao diện:
 
 ```text
 client/src/main/resources/com/example/auction/client/
-  auction.css     màu, font, nút, bảng, badge trạng thái, biểu đồ
+  auction.css     màu, font, nút, bảng và trạng thái
   login.fxml      bố cục đăng nhập/đăng ký/dùng thử
   main.fxml       bố cục danh sách, chi tiết và đặt giá
   seller.fxml     bố cục form tạo/sửa phiên

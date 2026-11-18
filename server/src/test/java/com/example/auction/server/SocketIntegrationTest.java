@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.example.auction.common.model.Auction;
 import com.example.auction.server.dao.FileStore;
 import com.example.auction.server.network.AuctionServer;
 import com.example.auction.server.protocol.JsonLines;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -75,7 +77,7 @@ class SocketIntegrationTest {
     return p;
   }
 
-  private JsonObject draft(long duration, boolean anti) {
+  private JsonObject draft(long duration) {
     JsonObject p =
         object(
             "name",
@@ -90,13 +92,12 @@ class SocketIntegrationTest {
     p.addProperty("startingPrice", 100);
     p.addProperty("startDelaySeconds", 3600);
     p.addProperty("durationSeconds", duration);
-    p.addProperty("antiSniping", anti);
     return p;
   }
 
-  private String create(Peer seller, long duration, boolean anti) throws Exception {
+  private String create(Peer seller, long duration) throws Exception {
     return seller
-        .ok("CREATE_AUCTION", draft(duration, anti))
+        .ok("CREATE_AUCTION", draft(duration))
         .getAsJsonObject("auction")
         .get("id")
         .getAsString();
@@ -125,7 +126,7 @@ class SocketIntegrationTest {
     final Peer seller = account("seller", "SELLER");
     final Peer one = account("buyer1", "BIDDER");
     final Peer two = account("buyer2", "BIDDER");
-    String id = create(seller, 1, false);
+    String id = create(seller, 1);
     seller.ok("START_AUCTION", id(id));
     one.ok("SUBSCRIBE", id(id));
     two.ok("SUBSCRIBE", id(id));
@@ -177,8 +178,8 @@ class SocketIntegrationTest {
     final Peer seller = account("seller", "SELLER");
     final Peer other = account("other", "SELLER");
     final Peer buyer = account("buyer", "BIDDER");
-    String id = create(seller, 60, false);
-    code(buyer, "CREATE_AUCTION", draft(10, false), "FORBIDDEN");
+    String id = create(seller, 60);
+    code(buyer, "CREATE_AUCTION", draft(10), "FORBIDDEN");
     code(other, "START_AUCTION", id(id), "FORBIDDEN");
     code(other, "DELETE_AUCTION", id(id), "FORBIDDEN");
     code(buyer, "LIST_USERS", new JsonObject(), "FORBIDDEN");
@@ -196,12 +197,13 @@ class SocketIntegrationTest {
     code(buyer, "PLACE_BID", bid, "BAD_REQUEST");
     bid.addProperty("amount", 200);
     buyer.ok("PLACE_BID", bid);
-    JsonObject update = draft(60, false);
+    JsonObject update = draft(60);
     update.addProperty("auctionId", id);
     code(seller, "UPDATE_AUCTION", update, "CONFLICT");
     code(seller, "DELETE_AUCTION", id(id), "CONFLICT");
-    seller.ok("CANCEL_AUCTION", id(id));
-    code(buyer, "PLACE_BID", bid, "AUCTION_CLOSED");
+    String emptyLot = create(seller, 60);
+    seller.ok("CANCEL_AUCTION", id(emptyLot));
+    seller.ok("DELETE_AUCTION", id(emptyLot));
     code(buyer, "UNKNOWN", id(id), "BAD_REQUEST");
     buyer.ok("LOGOUT", new JsonObject());
     code(buyer, "SUBSCRIBE", id(id), "NOT_LOGGED_IN");
@@ -216,8 +218,8 @@ class SocketIntegrationTest {
     assertFalse(users.contains("password"));
     assertFalse(users.contains("StrongPass"));
     final Peer seller = account("seller", "SELLER");
-    String id = create(seller, 30, true);
-    JsonObject update = draft(15, false);
+    String id = create(seller, 30);
+    JsonObject update = draft(15);
     update.addProperty("auctionId", id);
     update.addProperty("category", "ART");
     update.addProperty("name", "Painting");
@@ -230,49 +232,87 @@ class SocketIntegrationTest {
   }
 
   @Test
-  void autoBiddingAntiSnipingAndRestoredAutoRules() throws Exception {
-    final Peer seller = account("seller", "SELLER");
-    final Peer one = account("buyer1", "BIDDER");
-    final Peer two = account("buyer2", "BIDDER");
-    String id = create(seller, 5, true);
-    seller.ok("START_AUCTION", id(id));
-    JsonObject config = id(id);
-    config.addProperty("maxBid", 1000);
-    config.addProperty("increment", 10);
-    JsonObject first = one.ok("AUTO_BID", config).getAsJsonObject("auction");
+  void editingDescriptionKeepsOpeningTime() throws Exception {
+    Peer seller = account("seller", "SELLER");
+    JsonObject original = seller.ok("CREATE_AUCTION", draft(60)).getAsJsonObject("auction");
+    String id = original.get("id").getAsString();
+    JsonObject update = draft(60);
+    update.addProperty("auctionId", id);
+    update.addProperty("description", "Mô tả đã sửa");
+    update.remove("startDelaySeconds");
+    update.remove("durationSeconds");
+    JsonObject updated = seller.ok("UPDATE_AUCTION", update).getAsJsonObject("auction");
+    assertEquals("Mô tả đã sửa", updated.get("description").getAsString());
+    assertEquals(original.get("startTime"), updated.get("startTime"));
+    assertEquals(original.get("endTime"), updated.get("endTime"));
+
+    update.addProperty("startDelaySeconds", 7200);
+    JsonObject rescheduled = seller.ok("UPDATE_AUCTION", update).getAsJsonObject("auction");
     assertTrue(
-        java.time.Duration.between(
-                    java.time.Instant.now(),
-                    java.time.Instant.parse(first.get("endTime").getAsString()))
-                .getSeconds()
-            >= 28);
-    assertFalse(first.toString().contains("maxBid"));
-    server.close();
-    store.close();
-    store = new FileStore(data);
-    app = new AuctionApplication(store);
-    server = new AuctionServer(app, "127.0.0.1", 0);
-    server.start();
-    Peer competitor = peer();
-    competitor.ok("LOGIN", object("username", "buyer2", "password", "Secret123!"));
+        java.time.Instant.parse(rescheduled.get("startTime").getAsString())
+            .isAfter(java.time.Instant.parse(original.get("startTime").getAsString())));
+  }
+
+  @Test
+  void staleDraftCannotOverwriteTheNewerOne() throws Exception {
+    Peer seller = account("seller", "SELLER");
+    JsonObject original = seller.ok("CREATE_AUCTION", draft(60)).getAsJsonObject("auction");
+    String auctionId = original.get("id").getAsString();
+    JsonObject edit = draft(60);
+    edit.addProperty("auctionId", auctionId);
+    edit.add("version", original.get("version"));
+    edit.addProperty("name", "Mô tả mới nhất");
+    seller.ok("UPDATE_AUCTION", edit);
+
+    edit.addProperty("name", "Nội dung từ màn hình cũ");
+    code(seller, "UPDATE_AUCTION", edit, "CONFLICT");
+    JsonObject current = seller.ok("GET_AUCTION", id(auctionId)).getAsJsonObject("auction");
+    assertEquals("Mô tả mới nhất", current.get("name").getAsString());
+  }
+
+  @Test
+  void startingPriceLeavesRoomForValidBid() throws Exception {
+    Peer seller = account("seller", "SELLER");
+    JsonObject draft = draft(60);
+    draft.addProperty("startingPrice", Auction.MAX_AMOUNT);
+    code(seller, "CREATE_AUCTION", draft, "BAD_REQUEST");
+
+    draft.addProperty("startingPrice", Auction.MAX_AMOUNT - 1);
+    String auctionId =
+        seller.ok("CREATE_AUCTION", draft).getAsJsonObject("auction").get("id").getAsString();
+    seller.ok("START_AUCTION", id(auctionId));
+    JsonObject bid = id(auctionId);
+    bid.addProperty("amount", Auction.MAX_AMOUNT);
+    Peer buyer = account("buyer", "BIDDER");
+    JsonObject accepted = buyer.ok("PLACE_BID", bid).getAsJsonObject("auction");
+    assertEquals(Auction.MAX_AMOUNT, accepted.get("currentPrice").getAsLong());
+  }
+
+  @Test
+  void onlyAdminCanCancelAfterBidAndBidHistoryRemains() throws Exception {
+    app.bootstrap("admin", "StrongPass123!");
+    Peer admin = peer();
+    admin.ok("LOGIN", object("username", "admin", "password", "StrongPass123!"));
+    Peer seller = account("seller", "SELLER");
+    Peer buyer = account("buyer", "BIDDER");
+    String id = create(seller, 60);
+    seller.ok("START_AUCTION", id(id));
     JsonObject bid = id(id);
-    bid.addProperty("amount", 200);
-    JsonObject response = competitor.ok("PLACE_BID", bid).getAsJsonObject("auction");
-    assertEquals("buyer1", response.get("leader").getAsString());
-    assertEquals(210, response.get("currentPrice").getAsLong());
-    Peer owner = peer();
-    owner.ok("LOGIN", object("username", "buyer1", "password", "Secret123!"));
-    owner.ok("REMOVE_AUTO_BID", id(id));
-    bid.addProperty("amount", 250);
-    assertEquals(
-        "buyer2",
-        competitor.ok("PLACE_BID", bid).getAsJsonObject("auction").get("leader").getAsString());
+    bid.addProperty("amount", 101);
+    buyer.ok("PLACE_BID", bid);
+
+    code(seller, "CANCEL_AUCTION", id(id), "FORBIDDEN");
+    JsonObject canceled = admin.ok("CANCEL_AUCTION", id(id)).getAsJsonObject("auction");
+    assertEquals("CANCELED", canceled.get("status").getAsString());
+    assertEquals(1, canceled.getAsJsonArray("history").size());
+    assertFalse(canceled.has("winnerId"));
+    code(buyer, "PLACE_BID", bid, "AUCTION_CLOSED");
   }
 
   @Test
   void simultaneousRealSocketBidsNeverRollback() throws Exception {
     final Peer seller = account("seller", "SELLER");
-    String id = create(seller, 30, false);
+    String id = create(seller, 30);
     seller.ok("START_AUCTION", id(id));
     List<Peer> bidders = new ArrayList<>();
     for (int i = 0; i < 12; i++) {
@@ -328,7 +368,7 @@ class SocketIntegrationTest {
   @Test
   void scheduledStartAndCloseWithoutRequests() throws Exception {
     final Peer seller = account("seller", "SELLER");
-    JsonObject p = draft(1, false);
+    JsonObject p = draft(1);
     p.addProperty("startDelaySeconds", 0);
     String id = seller.ok("CREATE_AUCTION", p).getAsJsonObject("auction").get("id").getAsString();
     Thread.sleep(1400);
@@ -353,7 +393,7 @@ class SocketIntegrationTest {
   void completeHistoryIsPaginatedAndSnapshotIsBounded() throws Exception {
     final Peer seller = account("seller", "SELLER");
     Peer buyer = account("buyer", "BIDDER");
-    String auctionId = create(seller, 120, false);
+    String auctionId = create(seller, 120);
     seller.ok("START_AUCTION", id(auctionId));
     for (int i = 1; i <= 105; i++) {
       JsonObject bid = id(auctionId);
@@ -387,7 +427,7 @@ class SocketIntegrationTest {
     Files.delete(snapshot);
     Files.createDirectory(snapshot);
     Files.writeString(snapshot.resolve("block-move"), "simulated IO fault");
-    code(seller, "CREATE_AUCTION", draft(60, false), "STORAGE_ERROR");
+    code(seller, "CREATE_AUCTION", draft(60), "STORAGE_ERROR");
     code(seller, "LIST_AUCTIONS", new JsonObject(), "STORAGE_ERROR");
     Files.delete(snapshot.resolve("block-move"));
     Files.delete(snapshot);
@@ -411,7 +451,7 @@ class SocketIntegrationTest {
         (type, auction) -> {
           throw new IllegalStateException("observer failed");
         });
-    String auctionId = create(seller, 60, false);
+    String auctionId = create(seller, 60);
     assertEquals(
         auctionId,
         seller.ok("GET_AUCTION", id(auctionId)).getAsJsonObject("auction").get("id").getAsString());
@@ -421,7 +461,7 @@ class SocketIntegrationTest {
   void cursorPaginationDoesNotSkipLotsWhenEarlierLotIsDeleted() throws Exception {
     Peer seller = account("seller", "SELLER");
     for (int i = 0; i < 55; i++) {
-      create(seller, 60, false);
+      create(seller, 60);
     }
     JsonObject first = seller.ok("LIST_AUCTIONS", new JsonObject());
     var rows = first.getAsJsonArray("auctions");
@@ -445,11 +485,14 @@ class SocketIntegrationTest {
   void slowReaderWithLargeResponsesIsDroppedBeforeTwentyRepliesQueueUp() throws Exception {
     Peer seller = account("seller", "SELLER");
     for (int i = 0; i < 50; i++) {
-      JsonObject data = draft(60, false);
+      JsonObject data = draft(60);
       data.addProperty("description", "漢".repeat(4000));
       data.addProperty("extra1", "漢".repeat(4000));
       seller.ok("CREATE_AUCTION", data);
     }
+    Peer helper = peer();
+    helper.call(
+        "REGISTER", object("username", "slow_reader", "password", "Secret123!", "role", "BIDDER"));
     try (Socket slow = new Socket()) {
       slow.setReceiveBufferSize(1024);
       slow.connect(new java.net.InetSocketAddress("127.0.0.1", server.getPort()));
@@ -459,7 +502,8 @@ class SocketIntegrationTest {
               new OutputStreamWriter(slow.getOutputStream(), StandardCharsets.UTF_8));
       final var input = new BufferedInputStream(slow.getInputStream());
       output.write(
-          new Message("LOGIN", "login", object("username", "seller", "password", "Secret123!"))
+          new Message(
+                  "LOGIN", "login", object("username", "slow_reader", "password", "Secret123!"))
               .toJson());
       output.newLine();
       output.flush();
@@ -483,6 +527,57 @@ class SocketIntegrationTest {
       }
     }
     assertEquals(50, seller.ok("LIST_AUCTIONS", new JsonObject()).get("total").getAsInt());
+  }
+
+  @Test
+  void concurrentLoginKicksOutPreviousSession() throws Exception {
+    Peer first = account("shared_user", "BIDDER");
+    Peer second = peer();
+    second.ok("LOGIN", object("username", "shared_user", "password", "Secret123!"));
+    Message kicked = first.read();
+    assertEquals("KICKED_OUT", kicked.getType());
+    assertTrue(kicked.getPayload().get("message").getAsString().contains("thiết bị"));
+  }
+
+  @Test
+  void twoSimultaneousLoginsLeaveExactlyOneActiveSession() throws Exception {
+    Peer registration = peer();
+    registration.ok(
+        "REGISTER", object("username", "shared", "password", "Secret123!", "role", "BIDDER"));
+    Peer first = peer();
+    Peer second = peer();
+    JsonObject login = object("username", "shared", "password", "Secret123!");
+    try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+      CountDownLatch go = new CountDownLatch(1);
+      List<Future<JsonObject>> logins = new ArrayList<>();
+      for (Peer client : List.of(first, second)) {
+        logins.add(
+            pool.submit(
+                () -> {
+                  go.await();
+                  return client.ok("LOGIN", login);
+                }));
+      }
+      go.countDown();
+      for (Future<JsonObject> result : logins) {
+        result.get(5, TimeUnit.SECONDS);
+      }
+    }
+
+    int active = 0;
+    for (Peer client : List.of(first, second)) {
+      try {
+        Message response = client.call("LIST_AUCTIONS", new JsonObject());
+        if (response.getType().equals("RESULT")) {
+          active++;
+        } else {
+          assertEquals("NOT_LOGGED_IN", response.getPayload().get("code").getAsString());
+        }
+      } catch (EOFException | SocketException expected) {
+        // The server closed the replaced session after sending KICKED_OUT.
+      }
+    }
+    assertEquals(1, active);
   }
 
   static final class Peer implements AutoCloseable {

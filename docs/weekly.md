@@ -1,46 +1,36 @@
-# Kế hoạch bốn mảng công việc theo tuần
+# Kế hoạch năm vai A–E theo tuần
 
-Đây là **kế hoạch phân công**, không phải báo cáo rằng bốn người đã làm các việc dưới đây
-trong những tuần đã qua. A/B/C/D là ký hiệu mảng phụ trách, chưa gán tên thành viên.
-Khi sử dụng cho một nhóm thật, ghi tên và bằng chứng hoàn thành ở cuối mỗi tuần.
+Phân vai dựa trên tài liệu **Phân công chi tiết 5 vai trò A-B-C-D-E**. Kết quả kỹ thuật của
+từng vai nằm trong [bảng bàn giao](requirements.md). Nhật ký và PR thực tế là căn cứ ghi
+tên, công việc và mức đóng góp của từng thành viên.
 
 ## Nhánh và phạm vi
 
-| Mảng | Nhánh theo ảnh | Phần phụ trách | Điểm bàn giao |
+| Vai | Nhánh công việc | Phần phụ trách | Điểm bàn giao |
 |---|---|---|---|
-| A — Domain | `feature/domain-model` | Entity/User/Item, kế thừa, Factory, Singleton, sơ đồ lớp | API domain, dữ liệu sản phẩm, test model |
-| B — Đấu giá | `feature/auction-model` | Auction, trạng thái, khóa, Observer, auto-bid, anti-sniping | Quy tắc bid, snapshot kết quả, test đồng thời |
-| C — Server và mạng | `spike/socket-echo` | Giao thức, socket, session, phân quyền, DAO, build server | JSON mẫu, server chạy độc lập, test giao thức |
-| D — Client và tích hợp | `feature/client-detail-ui` | FXML/MVC, lớp mạng client, biểu đồ, test GUI, CI và tài liệu chạy | Client chạy độc lập, demo hai client |
-
-Giữ tên `spike/socket-echo` để khớp ảnh. Khi prototype echo đã xong, C tiếp tục triển khai
-request/response thật; tên nhánh không có nghĩa server cuối cùng chỉ echo.
-Phần E (test/GUI phụ) trong kế hoạch năm người được chia lại: A/B/C viết test phần mình,
-D ghép test xuyên suốt và CI. Mọi mảng cùng review tài liệu, không dồn hết test cho D.
-
-## Xem cụ thể từng file
-
-[Bảng tuần → file → phần code cần làm](weekly-files.md) liệt kê đủ A/B/C/D cho từng tuần,
-kèm bảng tra ngược file → các tuần liên quan. Ví dụ `Auction.java` bắt đầu bằng dữ liệu
-ở tuần 6, thêm đặt giá/khóa ở tuần 7, hoàn thiện lỗi ở tuần 8 rồi thêm auto-bid ở tuần 13.
+| A — Domain và mẫu thiết kế | `feature/domain-model` | Entity/User/Item, cây kế thừa, Singleton, Factory Method, hỗ trợ Observer | Lớp dữ liệu và kiểm thử mẫu thiết kế |
+| B — Logic đấu giá và đa luồng | `feature/auction-model` | Auction, BidTransaction, trạng thái, khóa, tự đóng và ngoại lệ | Quy tắc giá, người thắng và kiểm thử đồng thời |
+| C — Server, mạng và dữ liệu | `spike/socket-echo` | Socket JSON, session, quyền, đăng nhập, lưu file và đẩy sự kiện | Giao thức, server chạy riêng và phục hồi dữ liệu |
+| D — Client GUI và mạng | `feature/client-detail-ui` | JavaFX/FXML MVC, đăng nhập/đăng ký, danh sách, chi tiết, đặt giá realtime | Client chạy riêng; hai client thấy cùng giá và lịch sử |
+| E — Khung dự án, test và GUI phụ | `feature/maven-setup` | Maven, GitHub Actions, Checkstyle, JaCoCo, README, Seller CRUD và Admin | Build kiểm tra được; Seller và Admin thao tác qua GUI với server thật |
 
 ## Tuần 6–15
 
-| Tuần | A — Domain | B — Đấu giá | C — Server/mạng | D — Client/tích hợp | Điều kiện chốt tuần |
+| Tuần | A — Domain | B — Đấu giá | C — Server/mạng | D — Client GUI | E — Build, test, Seller/Admin |
 |---|---|---|---|---|---|
-| 6 | Đọc đề, xác định Entity/User/Item; vẽ lớp và tạo các loại sản phẩm | Chốt quy tắc giá và sơ đồ trạng thái, constructor Auction | Tạo Maven server, thử Socket echo hai tiến trình | Tạo Maven client, chạy JavaFX/FXML và form đăng nhập | Các lớp cơ bản và hai ứng dụng đều build được |
-| 7 | Factory, getter/đóng gói, test cây kế thừa | BidTransaction, khóa theo phiên, Observer sau nhả khóa | Bộ xử lý mỗi kết nối, đóng socket sạch | Bảng phiên và khung chi tiết với dữ liệu thử trong nhánh UI | Test nhiều luồng không làm giá lùi; mẫu UI chạy được |
-| 8 | Kiểm tra dữ liệu sản phẩm, exception và tài liệu domain | Hoàn thiện lifecycle, deadline, test bid sai/phiên đóng | Xác thực tài khoản và phân quyền dịch vụ | Tách Controller/Model, form sản phẩm, hiển thị lỗi | Quy tắc nghiệp vụ có test; controller không tự chọn người thắng |
-| 9 | Review JSON dữ liệu sản phẩm, kiểm serialization entity | Nối Auction vào dịch vụ lệnh | Chốt protocol; LOGIN/REGISTER/LIST; DAO file; test restart | Viết lớp mạng client, nối đăng nhập/danh sách thật; bật Checkstyle/CI | Một client đăng nhập qua Socket; dữ liệu còn sau restart |
-| 10 | Review thông tin sản phẩm và người dùng trong snapshot | Nối Observer với sự kiện giá/đóng phiên | Nhiều client, subscription, requestId, lỗi socket | Đủ luồng đăng ký, danh sách, chi tiết, bid, quản lý; gom coverage | Seller tạo phiên, hai bidder thấy giá realtime; coverage tổng ≥60% |
-| 11 | Kiểm ownership, dữ liệu biên, cập nhật sơ đồ | Test bid sát deadline và bid đồng thời | Giới hạn thông điệp, client chậm, lỗi ghi file | Test GUI với server thật, kiểm nút theo vai trò | Luồng bắt buộc chạy ổn, không polling liên tục |
-| 12 | Review chéo test và đóng gói domain trong server | Kết thúc/PAID mô phỏng/hủy, xử lý không có người thắng | Build từ riêng thư mục server, kiểm JAR và khôi phục | Build từ riêng thư mục client, kiểm không import server | Hai bản độc lập build được và vẫn nói cùng protocol |
-| 13 | Review API, cập nhật tài liệu lớp | Auto-bid bằng PriorityQueue, anti-sniping, test trần/hòa trần | Kiểm dữ liệu rule auto khi restart | Biểu đồ giá realtime, hoàn thiện README và kịch bản demo | Bắt buộc ổn trước khi ghép nâng cao; đóng gói bản trình diễn |
-| 14 | Giải thích OOP/Factory/Singleton | Giải thích khóa/Observer/auto-bid | Giải thích Socket/DAO/quyền và lỗi mạng | Tổng hợp slide, chạy demo, sửa lỗi hiển thị cuối | Tập trình bày và chấm nếu lịch lớp ở tuần 14 |
-| 15 | Review câu hỏi domain | Review câu hỏi thuật toán | Chuẩn bị bản dự phòng | Trình bày theo lịch chính thức, giữ gói chạy đã kiểm tra | Theo hướng dẫn tuần 15; nếu lớp chấm tuần 14 thì tuần này dự phòng |
+| 6 | Xác định lớp và mẫu thiết kế | Chốt quy tắc giá, trạng thái và cấu trúc Auction | Thử Socket echo | Chạy JavaFX/FXML và form đăng nhập | Khung Maven và quy ước Git |
+| 7 | Viết Factory Method, kiểm cây kế thừa | BidTransaction, khóa theo phiên và Observer | Xử lý mỗi kết nối và đóng socket | Danh sách phiên và chi tiết | Bố cục Seller/Admin và test nền |
+| 8 | Kiểm dữ liệu biên và ngoại lệ | Kiểm thời gian, chuyển trạng thái và giá sai | Xác thực, đăng ký và phân quyền | Tách FXML, controller và model hiển thị | Test JUnit và form Seller |
+| 9 | Kiểm dữ liệu JSON và serialization | Nối Auction vào dịch vụ lệnh | Chốt protocol, Socket và DAO file | Nối đăng nhập/danh sách qua mạng | Maven, Checkstyle, GitHub Actions |
+| 10 | Kiểm Singleton và Factory trong luồng thật | Nối sự kiện giá và tự đóng | Kiểm nhiều client và subscription | Đặt giá, chi tiết realtime và lịch sử | Seller CRUD, Admin, JaCoCo ≥60% |
+| 11 | Kiểm ownership và dữ liệu biên | Test bid sát hạn và nhiều bidder | Kiểm lỗi mạng, client chậm, lỗi ghi file | Test GUI và xử lý mất kết nối | Test hết luồng tạo/sửa/xóa và quyền Admin |
+| 12 | Review mẫu thiết kế và mã domain | Chốt hủy, người thắng và PAID mô phỏng | Kiểm JAR và khôi phục dữ liệu | Kiểm client chạy từ thư mục riêng | Build độc lập, CI và kiểm thử chéo |
+| 13 | Rà API, tài liệu lớp và test | Rà hạn đóng, lịch mở, quyền hủy | Kiểm phiên và lịch sử sau restart | Hoàn thiện GUI và kịch bản demo | Kiểm gói bàn giao và hướng dẫn terminal |
+| 14 | Tập giải thích OOP và pattern | Tập giải thích khóa, Observer và hạn đóng | Tập giải thích giao thức, DAO và quyền | Chạy thử demo GUI | Chuẩn bị số liệu test, slide và gói dự phòng |
+| 15 | Trình bày thiết kế | Trình bày nghiệp vụ | Trình bày mạng và dữ liệu | Chạy demo | Trình bày CI và kiểm thử |
 
-Các mốc theo số tuần môn học, không tự gắn ngày lịch hay ghi lùi ngày commit.
-Hướng dẫn chung ghi tuần 15 trình bày, kế hoạch nhóm ghi tuần 14; xác nhận lịch thực tế với giảng viên.
+Hướng dẫn của thầy ghi tuần 15 trình bày. Kế hoạch nhóm dùng tuần 14 và tuần 15 dự phòng.
+[Bảng tra từng file](weekly-files.md) dùng để đọc code và chuẩn bị vấn đáp.
 
 ## Quy trình Git từ thời điểm áp dụng
 
@@ -57,7 +47,7 @@ Không ghi nhiệm vụ dự kiến thành thành tích đã hoàn thành. Tiế
 
 ```text
 Tuần:
-Người thực hiện / mảng A, B, C hoặc D:
+Người thực hiện / mảng A, B, C, D hoặc E:
 Đã hoàn thành:
 Chưa hoàn thành:
 Phụ thuộc / người đang chờ:

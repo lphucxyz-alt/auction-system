@@ -21,6 +21,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -32,15 +33,17 @@ import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.chart.LineChart;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
-import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.image.WritableImage;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -76,7 +79,7 @@ class ClientWorkflowTest {
   }
 
   @Test
-  void fxmlLoginBidRealtimeChartAndRoleScreens() throws Exception {
+  void fxmlLoginBidRealtimeHistoryAndRoleScreens() throws Exception {
     try (FileStore store = new FileStore(data)) {
       AuctionApplication model = new AuctionApplication(store);
       model.seedDemo();
@@ -165,17 +168,6 @@ class ClientWorkflowTest {
                   throw new RuntimeException(e);
                 }
               });
-          fx(
-              () -> {
-                assertEquals(
-                    1,
-                    ((LineChart<?, ?>) stage.getScene().lookup("#chart"))
-                        .getData()
-                        .getFirst()
-                        .getData()
-                        .size());
-                return null;
-              });
           // A second socket drives a pushed change; GUI updates with no refresh request.
           try (AuctionConnection competitor =
               new AuctionConnection("127.0.0.1", server.getPort())) {
@@ -199,12 +191,6 @@ class ClientWorkflowTest {
                 });
           }
           screenshot(stage, "auction-live.png");
-          fx(
-              () -> {
-                ((ScrollPane) stage.getScene().lookup(".scroll-pane")).setVvalue(1);
-                return null;
-              });
-          screenshot(stage, "auction-chart.png");
           fx(
               () -> {
                 Parent root = stage.getScene().getRoot();
@@ -257,6 +243,19 @@ class ClientWorkflowTest {
                     ((TextField) form.lookup("#startingPrice")).setText("invalid");
                     assertThrows(IllegalArgumentException.class, controller::payload);
                     ((TextField) form.lookup("#startingPrice")).setText("1000");
+                    JsonObject draft = controller.payload();
+                    assertTrue(draft.has("startDelaySeconds"));
+                    Instant start = Instant.now().plusSeconds(300);
+                    draft.addProperty("startTime", start.toString());
+                    draft.addProperty(
+                        "endTime", start.plusSeconds(180).plusMillis(25).toString());
+                    controller.configure(new AuctionRow(draft));
+                    assertFalse(
+                        controller.payload().has("startDelaySeconds"),
+                        "Sửa nháp phải giữ lịch mở nếu không chỉnh trường lịch");
+                    assertFalse(controller.payload().has("durationSeconds"));
+                    ((TextField) form.lookup("#delay")).setText("900");
+                    assertEquals(900, controller.payload().get("startDelaySeconds").getAsInt());
                     Stage preview = new Stage();
                     preview.setScene(new Scene(form));
                     preview.show();
@@ -318,6 +317,20 @@ class ClientWorkflowTest {
                 return null;
               });
           screenshot(stage, "admin.png");
+          fx(
+              () -> {
+                ((Button) stage.getScene().lookup("#usersButton")).fire();
+                return null;
+              });
+          awaitFx(() -> openDialog() != null);
+          fx(
+              () -> {
+                DialogPane dialog = openDialog();
+                assertEquals("Tài khoản hệ thống", dialog.getHeaderText());
+                assertTrue(dialog.getContentText().contains("bidder2"));
+                confirmDialog(dialog);
+                return null;
+              });
         } finally {
           fx(
               () -> {
@@ -328,6 +341,145 @@ class ClientWorkflowTest {
         }
       }
     }
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void historySortsByTheActualBidTimeAcrossMonths() throws Exception {
+    fx(
+        () -> {
+          FXMLLoader loader = new FXMLLoader(App.class.getResource("main.fxml"));
+          loader.load();
+          var history = (TableView<JsonObject>) loader.getNamespace().get("history");
+          JsonObject latest = new JsonObject();
+          latest.addProperty("time", "2026-12-01T12:00:00Z");
+          JsonObject earlier = new JsonObject();
+          earlier.addProperty("time", "2026-11-30T12:00:00Z");
+          history.getItems().setAll(latest, earlier);
+          var time = history.getColumns().getLast();
+          time.setSortType(TableColumn.SortType.ASCENDING);
+          history.getSortOrder().add(time);
+          assertEquals(earlier, history.getItems().getFirst());
+          return null;
+        });
+  }
+
+  @Test
+  void sellerCreatesEditsAndDeletesThroughTheRealGui() throws Exception {
+    try (FileStore store = new FileStore(data)) {
+      AuctionApplication model = new AuctionApplication(store);
+      model.seedDemo();
+      try (AuctionServer server = new AuctionServer(model, "127.0.0.1", 0)) {
+        server.start();
+        System.setProperty("auction.port", Integer.toString(server.getPort()));
+        App app = new App();
+        Stage stage =
+            fx(
+                () -> {
+                  Stage window = new Stage();
+                  app.start(window);
+                  ((TextField) window.getScene().lookup("#username")).setText("seller");
+                  ((PasswordField) window.getScene().lookup("#password"))
+                      .setText("DemoSeller123!");
+                  ((Button) window.getScene().lookup("#login")).fire();
+                  return window;
+                });
+        try {
+          awaitFx(() -> stage.getScene().lookup("#createButton") != null);
+          Platform.runLater(() -> ((Button) stage.getScene().lookup("#createButton")).fire());
+          awaitFx(() -> openDialog() != null);
+          fx(
+              () -> {
+                DialogPane dialog = openDialog();
+                ((TextField) dialog.lookup("#name")).setText("Gói kiểm thử Seller");
+                ((TextField) dialog.lookup("#startingPrice")).setText("1000");
+                confirmDialog(dialog);
+                return null;
+              });
+          awaitFx(() -> findLot(stage, "Gói kiểm thử Seller") != null);
+          fx(
+              () -> {
+                var table = auctionTable(stage);
+                table.getSelectionModel().select(findLot(stage, "Gói kiểm thử Seller"));
+                return null;
+              });
+          final String scheduledStart =
+              fx(() -> findLot(stage, "Gói kiểm thử Seller").text("startTime"));
+          Platform.runLater(() -> ((Button) stage.getScene().lookup("#editButton")).fire());
+          awaitFx(() -> openDialog() != null);
+          fx(
+              () -> {
+                DialogPane dialog = openDialog();
+                ((TextField) dialog.lookup("#name")).setText("Phiên đã đổi tên");
+                confirmDialog(dialog);
+                return null;
+              });
+          awaitFx(() -> findLot(stage, "Phiên đã đổi tên") != null);
+          fx(
+              () -> {
+                assertEquals(scheduledStart, findLot(stage, "Phiên đã đổi tên").text("startTime"));
+                return null;
+              });
+          Platform.runLater(() -> ((Button) stage.getScene().lookup("#deleteButton")).fire());
+          awaitFx(() -> openDialog() != null);
+          fx(
+              () -> {
+                confirmDialog(openDialog());
+                return null;
+              });
+          awaitFx(() -> findLot(stage, "Phiên đã đổi tên") == null);
+        } finally {
+          fx(
+              () -> {
+                app.stop();
+                stage.close();
+                return null;
+              });
+        }
+      }
+    }
+  }
+
+  private static void awaitFx(Callable<Boolean> condition) throws Exception {
+    await(
+        () -> {
+          try {
+            return fx(condition);
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
+  }
+
+  private static DialogPane openDialog() {
+    return Window.getWindows().stream()
+        .filter(Window::isShowing)
+        .map(window -> window.getScene().getRoot())
+        .filter(DialogPane.class::isInstance)
+        .map(DialogPane.class::cast)
+        .findFirst()
+        .orElse(null);
+  }
+
+  private static void confirmDialog(DialogPane dialog) {
+    var confirm =
+        dialog.getButtonTypes().stream()
+            .filter(button -> button.getButtonData() == ButtonData.OK_DONE)
+            .findFirst()
+            .orElseThrow();
+    ((Button) dialog.lookupButton(confirm)).fire();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static TableView<AuctionRow> auctionTable(Stage stage) {
+    return (TableView<AuctionRow>) stage.getScene().lookup("#table");
+  }
+
+  private static AuctionRow findLot(Stage stage, String name) {
+    return auctionTable(stage).getItems().stream()
+        .filter(row -> row.name().equals(name))
+        .findFirst()
+        .orElse(null);
   }
 
   @Test

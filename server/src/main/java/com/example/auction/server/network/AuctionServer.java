@@ -10,6 +10,7 @@ import com.example.auction.server.ApiException;
 import com.example.auction.server.AuctionApplication;
 import com.example.auction.server.protocol.JsonLines;
 import com.example.auction.server.protocol.Message;
+import com.example.auction.server.protocol.MessageType;
 import com.google.gson.JsonObject;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -48,8 +49,17 @@ public final class AuctionServer implements AutoCloseable {
   public AuctionServer(AuctionApplication app, String host, int port) throws IOException {
     this.app = app;
     server = new ServerSocket();
-    server.setReuseAddress(true);
-    server.bind(new InetSocketAddress(host, port));
+    try {
+      server.setReuseAddress(true);
+      server.bind(new InetSocketAddress(host, port));
+    } catch (IOException | RuntimeException bindError) {
+      try {
+        server.close();
+      } catch (IOException cleanupError) {
+        bindError.addSuppressed(cleanupError);
+      }
+      throw bindError;
+    }
     observer =
         (type, auction) -> {
           if (closed) {
@@ -122,6 +132,7 @@ public final class AuctionServer implements AutoCloseable {
     private final Set<String> subscriptions = ConcurrentHashMap.newKeySet();
     private volatile User user;
     private volatile boolean ended;
+    private boolean kicked;
 
     Session(Socket socket) {
       this.socket = socket;
@@ -141,6 +152,24 @@ public final class AuctionServer implements AutoCloseable {
         pendingOutputBytes.addAndGet(-frame.length);
         disconnect();
       }
+    }
+
+    void kick(String reason) {
+      JsonObject payload = new JsonObject();
+      payload.addProperty("message", reason);
+      kicked = true;
+      user = null;
+      subscriptions.clear();
+      send(new Message(MessageType.KICKED_OUT, null, payload));
+      workers.submit(
+          () -> {
+            try {
+              Thread.sleep(150);
+            } catch (InterruptedException ignored) {
+              Thread.currentThread().interrupt();
+            }
+            disconnect();
+          });
     }
 
     void disconnect() {
@@ -180,8 +209,13 @@ public final class AuctionServer implements AutoCloseable {
             if (request.getRequestId() == null || request.getRequestId().length() > 100) {
               throw new ApiException("BAD_REQUEST", "Cần requestId dài tối đa 100 ký tự");
             }
-            JsonObject result = dispatch(request);
-            send(Message.result(request.getRequestId(), result));
+            synchronized (app) {
+              if (kicked) {
+                throw new ApiException("NOT_LOGGED_IN", "Phiên đăng nhập đã kết thúc");
+              }
+              JsonObject result = dispatch(request);
+              send(Message.result(request.getRequestId(), result));
+            }
           } catch (ApiException e) {
             error(request, e.getCode(), e.getMessage());
           } catch (AuthenticationException e) {
@@ -221,9 +255,18 @@ public final class AuctionServer implements AutoCloseable {
           if (user != null) {
             throw new ApiException("CONFLICT", "Đã đăng nhập; hãy đăng xuất trước");
           }
-          user =
-              app.login(
-                  AuctionApplication.text(p, "username"), AuctionApplication.text(p, "password"));
+          String uname = AuctionApplication.text(p, "username");
+          String pass = AuctionApplication.text(p, "password");
+          User authenticated = app.login(uname, pass);
+          for (Session other : sessions) {
+            if (other != this
+                && !other.ended
+                && other.user != null
+                && other.user.getId().equals(authenticated.getId())) {
+              other.kick("Tài khoản vừa được đăng nhập từ một thiết bị/terminal khác.");
+            }
+          }
+          user = authenticated;
           JsonObject out = new JsonObject();
           out.add("user", AuctionApplication.userView(user));
           yield out;
@@ -234,15 +277,13 @@ public final class AuctionServer implements AutoCloseable {
           yield new JsonObject();
         }
         case "SUBSCRIBE" -> {
-          synchronized (app) {
-            JsonObject out = app.execute(user, type, p);
-            if (subscriptions.size() >= 100
-                && !subscriptions.contains(AuctionApplication.text(p, "auctionId"))) {
-              throw new ApiException("CONFLICT", "Tối đa 100 subscriptions");
-            }
-            subscriptions.add(AuctionApplication.text(p, "auctionId"));
-            yield out;
+          JsonObject out = app.execute(user, type, p);
+          String auctionId = AuctionApplication.text(p, "auctionId");
+          if (subscriptions.size() >= 100 && !subscriptions.contains(auctionId)) {
+            throw new ApiException("CONFLICT", "Tối đa 100 subscriptions");
           }
+          subscriptions.add(auctionId);
+          yield out;
         }
         case "UNSUBSCRIBE" -> {
           subscriptions.remove(AuctionApplication.text(p, "auctionId"));

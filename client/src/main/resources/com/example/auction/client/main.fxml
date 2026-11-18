@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.chart.*?>
 <?import javafx.geometry.Insets?>
 <BorderPane xmlns="http://javafx.com/javafx/21" stylesheets="@auction.css" prefWidth="1180" prefHeight="780" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.auction.client.MainController" styleClass="root-shell">
   <top>
@@ -82,52 +81,26 @@
                   <TextField fx:id="amount" promptText="Giá đặt (VND)" HBox.hgrow="ALWAYS"/>
                   <Button fx:id="bidButton" text="Đặt giá" onAction="#bid" styleClass="primary"/>
                 </HBox>
-                <Label text="Đấu giá tự động (tùy chọn)" styleClass="field-label"/>
-                <HBox spacing="8">
-                  <TextField fx:id="maxBid" minWidth="90" promptText="Trần auto-bid" HBox.hgrow="ALWAYS"/>
-                  <TextField fx:id="increment" promptText="Bước giá" prefWidth="100" minWidth="75"/>
-                  <Button text="Bật tự động" onAction="#autoBid"/>
-                  <Button text="Tắt" onAction="#removeAuto"/>
-                </HBox>
               </VBox>
               <HBox fx:id="sellerControls" spacing="8">
                 <Button fx:id="editButton" text="Sửa nháp" onAction="#edit"/>
                 <Button fx:id="startButton" text="Bắt đầu" onAction="#start" styleClass="primary"/>
                 <Button fx:id="cancelButton" text="Hủy phiên" onAction="#cancel" styleClass="danger"/>
-                <Button fx:id="deleteButton" text="Xóa nháp" onAction="#delete" styleClass="danger"/>
+                <Button fx:id="deleteButton" text="Xóa phiên" onAction="#delete" styleClass="danger"/>
               </HBox>
               <Button fx:id="payButton" text="Xác nhận thanh toán (mô phỏng)" onAction="#pay" styleClass="primary"/>
-              <Button text="Tải toàn bộ lịch sử" onAction="#fullHistory"/>
-              <TabPane tabClosingPolicy="UNAVAILABLE" prefHeight="310">
-                <tabs>
-                  <Tab text="BIỂU ĐỒ GIÁ">
-                    <content>
-                      <LineChart fx:id="chart" animated="false" createSymbols="true" legendVisible="false" prefHeight="270">
-                        <xAxis>
-                          <CategoryAxis label="Thời gian"/>
-                        </xAxis>
-                        <yAxis>
-                          <NumberAxis label="Giá (VND)" forceZeroInRange="false"/>
-                        </yAxis>
-                      </LineChart>
-                    </content>
-                  </Tab>
-                  <Tab text="LỊCH SỬ ĐẤU GIÁ">
-                    <content>
-                      <TableView fx:id="history">
-                        <columns>
-                          <TableColumn fx:id="bidderColumn" text="Người đặt" prefWidth="135"/>
-                          <TableColumn fx:id="bidAmountColumn" text="Giá (VND)" prefWidth="145"/>
-                          <TableColumn fx:id="timeColumn" text="Thời gian" prefWidth="190"/>
-                        </columns>
-                        <placeholder>
-                          <Label text="Chưa có lượt đặt giá. Biểu đồ xuất hiện sau lượt đầu tiên." wrapText="true"/>
-                        </placeholder>
-                      </TableView>
-                    </content>
-                  </Tab>
-                </tabs>
-              </TabPane>
+              <Label text="Lịch sử đấu giá" styleClass="section-title"/>
+              <TableView fx:id="history" prefHeight="210">
+                <columns>
+                  <TableColumn fx:id="bidderColumn" text="Người đặt" prefWidth="135"/>
+                  <TableColumn fx:id="bidAmountColumn" text="Giá (VND)" prefWidth="145"/>
+                  <TableColumn fx:id="timeColumn" text="Thời gian" prefWidth="190"/>
+                </columns>
+                <placeholder>
+                  <Label text="Chưa có lượt đặt giá."/>
+                </placeholder>
+              </TableView>
+              <Button fx:id="fullHistoryButton" text="Tải toàn bộ lịch sử" onAction="#fullHistory"/>
             </VBox>
           </content>
         </ScrollPane>

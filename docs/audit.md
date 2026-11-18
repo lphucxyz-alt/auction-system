@@ -1,6 +1,6 @@
 # Kiểm tra lỗi bổ sung
 
-Mốc đối chiếu trước sửa: `c7dd5c8`. Phần này ghi lỗi đã kiểm tra và cách sửa, không coi số
+Đợt kiểm tra đầu dùng mốc `c7dd5c8`. Phần này ghi lỗi đã kiểm tra và cách sửa, không coi số
 lượng test hay coverage là bằng chứng rằng dự án không còn lỗi.
 
 ## Lỗi đã xác minh
@@ -51,17 +51,17 @@ Số liệu sau cùng được lưu trong [validation.json](validation.json) và
 [requirements.md](requirements.md). Các test chạy trong kho tạm; không xóa/reset dữ liệu
 người dùng để làm test qua.
 
-## Kết quả cuối
+## Kết quả đợt kiểm tra trước
 
 - 151 lượt test, không failure/error/skip; gồm test concurrency lặp 100 lần.
 - Coverage dòng gộp 1327/1653 (80,3%); không loại GUI hoặc domain khỏi số đo.
 - Checkstyle 0 vi phạm; bản sao độc lập của server và client đều clean verify thành công.
-- Smoke JAR, thử tải và đọc bản sao dữ liệu cũ đều đạt. Đây là kết quả ở môi trường hiện tại.
+- Smoke JAR, thử tải và đọc bản sao dữ liệu cũ đều đạt. Các số liệu thuộc đợt kiểm tra trước.
 
 Test hồi quy: [client transport](../client/src/test/java/com/example/auction/client/ClientConnectionTest.java),
 [Socket/server](../server/src/test/java/com/example/auction/server/SocketIntegrationTest.java),
 [DAO](../server/src/test/java/com/example/auction/server/dao/FileStoreTest.java),
-[domain](../server/src/test/java/com/example/auction/common/model/AdvancedAuctionTest.java),
+[domain](../server/src/test/java/com/example/auction/common/model/AuctionRulesTest.java),
 [GUI](../integration-tests/src/test/java/com/example/auction/client/ClientWorkflowTest.java).
 
 ## Giới hạn còn lại
@@ -72,3 +72,44 @@ chứng minh khả năng chịu hàng nghìn người. Chưa có idempotency key
 phản hồi sau khi server đã lưu, cần kết nối lại và kiểm trạng thái trước khi gửi lại lệnh.
 Các kiểm tra này giảm rủi ro trong phạm vi đã thử, không bảo đảm mọi thiết bị và mọi tình
 huống đều không có lỗi.
+
+## Đối chiếu lại phạm vi BTL ngày 18/11/2026
+
+Hướng dẫn BTL LTNC-2026 xác định đấu giá đồng thời và cập nhật qua Observer/Socket là bắt buộc.
+Ba mục tùy chọn đã gỡ khỏi chương trình và bản trình bày. Bảng lịch sử giá vẫn cập nhật qua Socket.
+
+| Tình huống | Tái hiện trước sửa | Hành vi sau sửa |
+|---|---|---|
+| Seller chỉ sửa mô tả nháp | Mở form với lịch trễ 5 phút, đợi rồi lưu. Server tính lại giờ mở theo thời điểm lưu. | Form gửi lịch mở mới khi trường tương ứng thay đổi. Mô tả có thể sửa mà giữ nguyên lịch. |
+| Seller hủy khi phiên đã có giá | Đặt giá rồi hủy bằng tài khoản Seller. Giá hợp lệ bị mất hiệu lực theo quyết định của người bán. | Chỉ Admin được hủy trước khi thanh toán. Lịch sử và giá cao nhất trước khi hủy vẫn có thể xem. |
+| Phiên hủy chưa có giá | Server cho phép xóa nhưng nút bị khóa trong giao diện. | Chủ sở hữu hoặc Admin có thể xóa phiên đó từ giao diện. |
+| Phiên hết giờ chưa có giá | Thông báo hướng người xem tìm người thắng. | Chi tiết và thông báo thể hiện phiên kết thúc mà chưa có ai đặt giá. |
+
+Hai trường hợp đầu được tái hiện trên JAR cũ và đối chiếu lại bằng JAR mới.
+Kiểm thử Socket bảo vệ lịch mở, quyền hủy và lịch sử. Test tích hợp JavaFX kiểm tra form sửa nháp
+và cập nhật giá từ client thứ hai. Bản sao dữ liệu demo và snapshot thử của bản cũ đều đọc được.
+Snapshot thử có lượt giá và cấu hình đặt giá tự động trước khi chuyển phiên bản. Giá đã chấp nhận
+vẫn có trong lịch sử, và lượt đặt mới giữ nguyên hạn đóng.
+
+## Rà đủ năm vai trước khi đóng gói
+
+- AuctionManager duy nhất quản lý vòng đời server và kho. Test khởi động, dừng, mở lại
+  bằng cùng dữ liệu và kiểm lần khởi động lỗi vì trùng cổng nhả khóa kho.
+- Factory Method tạo đúng ba loại sản phẩm; test kiểm cả thuộc tính riêng của từng loại.
+- Hai đăng nhập cùng lúc vào một tài khoản trước đây có thể cùng quan sát chưa có session
+  mới và đều giữ quyền. Server xử lý việc thay session và gửi phản hồi dưới cùng monitor;
+  kiểm thử Socket xác nhận đúng một session còn thực hiện được lệnh.
+- Kiểm thử GUI tạo, sửa, xóa bằng Seller, mở danh sách tài khoản bằng Admin và giữ lịch
+  khi Seller sửa thông tin. Phân vai và bằng chứng kỹ thuật nằm ở [requirements.md](requirements.md).
+
+## Rà soát trước khi đưa bản BTL lên GitHub
+
+| Trường hợp | Tái hiện và kết quả sau sửa |
+|---|---|
+| Sửa cùng một phiên từ hai bản form | Bản form cũ từng ghi đè nội dung vừa lưu. Client gửi phiên bản đã mở; server trả CONFLICT nếu dữ liệu đã đổi. Sửa mô tả giữ nguyên thời điểm và thời lượng khi người dùng giữ các trường lịch. |
+| Giá khởi điểm bằng trần đặt giá | Trước đây server cho tạo phiên dù mọi lượt đặt giá đều bị từ chối. Tạo và sửa phiên yêu cầu giá khởi điểm thấp hơn trần. Lượt đặt đúng trần vẫn hợp lệ khi cao hơn giá hiện tại. |
+| Server mở lại sau khi cả lịch mở và đóng đã qua | Phiên nháp từng phát RUNNING rồi FINISHED. Server áp dụng các bước chuyển trạng thái và chỉ công bố kết quả FINISHED. |
+| Sắp xếp lịch sử qua ranh giới tháng | Cột thời gian từng sắp xếp theo chữ hiển thị. Bảng hiện so sánh thời điểm thực và định dạng ngày, tháng, năm riêng khi hiển thị. |
+
+Ba lỗi nghiệp vụ được tái hiện bằng JUnit trước khi sửa. Kiểm thử tích hợp JavaFX kiểm sắp
+thứ tự ngày 30/11 và 01/12 trong bảng lịch sử. Giao diện tiếp tục nhận giá và lịch sử qua Socket.
